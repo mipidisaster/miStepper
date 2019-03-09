@@ -1,0 +1,21 @@
+# Need to ignore everything within directory
+/*
+
+# Now allow the following to be gitted
+# Include the git ignore file, as want this for all repositories
+!.gitignore
+!README.md
+
+# Allow access to the software folder
+# However only allow miStepper.ioc, Embed (all subs), 'Src/main.cpp' and 'Inc/main.h' to be
+# recorded
+!30_Software
+30_Software/*
+!30_Software/miStepper.ioc
+!30_Software/Src/
+30_Software/Src/*
+!30_Software/Src/main.*
+!30_Software/Inc/
+30_Software/Inc/*
+!30_Software/Inc/main.*
+!30_Software/Embed/
