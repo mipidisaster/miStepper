@@ -6,7 +6,19 @@
 !.gitignore
 !README.md
 
-# Allow access to the software folder
+# Allow access to the Electronics folder
+!20_Electronics
+20_Electronics/*
+!20_Electronics/*.brd
+!20_Electronics/*.sch
+!20_Electronics/*.xls[x]
+
+!20_Electronics/Archieve
+
+
+
+
+# Allow access to the Software folder
 # However only allow miStepper.ioc, Embed (all subs), 'Src/main.cpp' and 'Inc/main.h' to be
 # recorded
 !30_Software
