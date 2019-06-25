@@ -59,12 +59,12 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        TIM_HandleTypeDef                                   *dev_handle;
+        TIM_HandleTypeDef                                   *fan_timer;
 
     } config;
 
     struct {
-        _HALParam                                           *FanDmd;
+        float                                               *FanDmd;
 
     } input;
 

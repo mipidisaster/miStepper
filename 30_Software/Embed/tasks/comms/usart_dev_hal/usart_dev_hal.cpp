@@ -22,29 +22,42 @@ uint8_t             USART1Arr[2][USART1_CommBuff];      // Array used to contain
         // Defined outside of the RTOS function so isn't added to the stack
 static UARTPeriph   *USART1_Handle;     // Pointer to the USART1 class handle, for interrupt use
 
+typedef struct _miStpRdStatus{
+    enum  RdStatus  {   Idle        = 0,
+                        Listening   = 1
+
+                    }   _state;
+
+    enum Captured   {   DataRead    = 0,
+                        NewData     = 1
+                    }   _capt;
+
+    uint8_t     rdPointer;
+    uint8_t     rdData[16];
+
+}   _miStpRd;
+
+_miStpRd    RdState = { ._state     = _miStpRdStatus::Idle,
+                        ._capt      = _miStpRdStatus::DataRead,
+                        .rdPointer  = 0,
+                        .rdData     = { 0 } };
 
 /**************************************************************************************************
  * Define any local functions
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void WriteDatatoScreen(UARTPeriph *husart, char *pstorage, _HALParam *datapoint, char *xtrText,
-                                                                                 char unit);
-void WriteTimeToScreen(UARTPeriph *husart, char *pstorage, uint8_t curTask,
-                                           char *durText, char *delText);
-// Prototype(s) for function which puts data and string onto screen
-
-void QNewLine(UARTPeriph *husart);
-// Prototype for requesting a new line, and cursor to be returned to start of line
+void Transmit16bit(UARTPeriph *huart, uint16_t data);
+void Transmit32bit(UARTPeriph *huart, uint32_t data);
 
 
 /**
-  * @brief:  USART Device Hardware Abstraction Layer task
+  * @brief:  USART1 Device Hardware Abstraction Layer task
   * @param:  _taskUSART -> cast to a void pointer
   * @retval: None (void output)
   */
-void vUSARTDeviceHAL(void const * pvParameters) {
-    _taskUSART pxParameters;
-    pxParameters = * (_taskUSART *) pvParameters;
+void vUSART1DeviceHAL(void const * pvParameters) {
+    _taskUSART1 pxParameters;
+    pxParameters = * (_taskUSART1 *) pvParameters;
     // pxParameters is to include the parameters required to configure and interface this task
     // with other tasks within the OS - see header file for parameters (config, input, output).
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
@@ -62,13 +75,23 @@ void vUSARTDeviceHAL(void const * pvParameters) {
 
     // Create USART1 class
     // ===================
-    UARTPeriph  USART1Dev(pxParameters.config.dev_handle, &USARTGenBuff[1], &USARTGenBuff[0]);
+    UARTPeriph  USART1Dev(pxParameters.config.usart1_handle, &USARTGenBuff[1], &USARTGenBuff[0]);
     USART1_Handle = &USART1Dev;     // Link USART1Dev class to global pointer (for ISR)
 
     // Create local version of linked signals (prefix with "lc")
     // #=======================================================#
+
+    // Input to this task
+    // #=================#
     _HALParam   lcAngPos;           // Local version of value of Angle Position
+    SPIPeriph::DevFlt   lcSPI1Flt;  // Local version of SPI1 Bus Fault
+    HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> lcAS5048Flt;    // Local version of AS5048
+                                                                    // Fault
+
     _HALParam   lcExtTmp;           // Local version of value of External device temperature
+    I2CPeriph::DevFlt   lcI2C1Flt;  // Local version of I2C1 Bus Fault
+    HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> lcAD7415Flt;    // Local version of AD7415
+                                                                    // Fault
 
     _HALParam   lcIntVrf;           // Local version of Voltage Reference
     _HALParam   lcIntTmp;           // Local version of Internal Temperature
@@ -76,30 +99,25 @@ void vUSARTDeviceHAL(void const * pvParameters) {
     _HALParam   lcFanVlt;           // Local version of Fan Motor Voltage
     _HALParam   lcFanCur;           // Local version of Fan Motor Current
     _HALParam   lcFanAct;           // Local version of Fan Motor Actual Demand
-    _HALParam   lcFanDmd;           // Local version of Fan Motor Demand
 
     _HALParam   lcStpVlt;           // Local version of Stepper Motor Voltage
     _HALParam   lcStpCur;           // Local version of Stepper Motor Current
-    _HALParam   movement;           // Local version of Stepper Movement
+    uint16_t    lcStpfrq;           // Local version of Stepper Frequency
+    uint16_t    lcStpste;           // Local version of Stepper state
+    uint32_t    lcStpcPs;           // Local version of Stepper calcPosition
 
-    uint8_t     lcStpEnableReq;     // Request the motor to be enabled
-    uint8_t     lcStpMoveReq;       // Request the motor to move
+    // Output to this task
+    // #=================#
+    float       lcFanDmd        = 0.0;  // Local parameter for Fan Demand
+    uint8_t     lcStpEnable     = 0;    // Local parameter for Stepper Enable
+    uint8_t     lcStpGear       = 0;    // Local parameter for Stepper Gear
+    uint8_t     lcStpDirct      = 0;    // Local parameter for Stepper Direction
+    uint16_t    lcStpFreqDmd    = 0;    // Local parameter for Stepper Frequency Demand
 
-    // Parameters used to contain ASCII characters to be displayed via USART
-    char textarray[MaxCharinLine] = { 0 };  // This array will be passed into lower functions to
-                                            // limit the impact on stack size
-    int USARTsize = 0;                      // Variable returned from 'snprintf' for size of
-                                            // package
-    int looper = 0;                         // Variable to loop through the characters in
-                                            // 'textarray'
-    i = 0;      // Re-config the counter variable to be set to "0", as this is displayed to show
-                // USART task loop count
-
-    uint8_t  HMIString = 0;
-        // Variable used to enable/disable USART communication, Fan motor, stepper motor
-
-    uint8_t readback = 0;       // Variable used to store any characters returned from USART
-
+    // Local parameters
+    uint16_t    PckCount = 0;       // Communication Packet count
+    uint8_t     TransmitMode = 0;   // Mode for transmitting data
+    uint8_t     readback  = 0;      // Variable to store read data from USART
 
     // Enable USART interrupts:
     USART1Dev.ReceiveIT(UART_Enable);                   // Enable Receive interrupts
@@ -115,24 +133,14 @@ void vUSARTDeviceHAL(void const * pvParameters) {
     for(;;) {
         ticStartTask(miUSART1Task);     // Capture time of start of task
 
-        while (USART1Dev.SingleRead_IT(&readback) != GenBuffer_Empty) {
-            if      ( (readback == 'D') || (readback == 'd') ) {
-                HMIString   ^= (1 << TransmitData);
-            }
-            else if ( (readback == 'F') || (readback == 'f') ) {
-                HMIString   ^= (1 << FanEnable);
-            }
-            else if ( (readback == 'E') || (readback == 'e') ) {
-                HMIString   ^= (1 << StpEnable);
-            }
-            else if ( (readback == 'M') || (readback == 'm') ) {
-                HMIString   ^= (1 << StpMove);
-            }
-        }
-
         // Capture any new updates to input signals and link to local internals
         lcAngPos    = *(pxParameters.input.AngPos);
+        lcSPI1Flt   = *(pxParameters.input.SPI1CommFlt);
+        lcAS5048Flt = *(pxParameters.input.AS5048AFlt);
+
         lcExtTmp    = *(pxParameters.input.ExtTmp);
+        lcI2C1Flt   = *(pxParameters.input.I2C1CommFlt);
+        lcAD7415Flt = *(pxParameters.input.AD74151Flt);
 
         lcIntVrf    = *(pxParameters.input.IntVrf);
         lcIntTmp    = *(pxParameters.input.IntTmp);
@@ -143,112 +151,158 @@ void vUSARTDeviceHAL(void const * pvParameters) {
 
         lcStpVlt    = *(pxParameters.input.StpVlt);
         lcStpCur    = *(pxParameters.input.StpCur);
-        movement    = *(pxParameters.input.movement);
+        lcStpfrq    = *(pxParameters.input.StpFreqAct);
+        lcStpste    = *(pxParameters.input.StpStatAct);
+        lcStpcPs    = *(pxParameters.input.StpcalPost);
 
-        if ((HMIString & (1 << TransmitData)) != 0) {
-            // Only if the transmit bit has been enabled, send the following values to the display
-            // Current loop count (of USART only)
-            // Values of Angular Position, Internal and External Temperature, Voltage Reference,
-            //           Fan Voltage, Current and demand, Stepper Motor Voltage Current
-            //           Then (after first pass of task) transmit each task time duration and
-            //           delay
-            USART1Dev.SingleTransmit_IT( 12 );   // Clear the screen
-
-            USARTsize = snprintf(&textarray[0], MaxCharinLine,
-                                 "Currently on count -> %10d", (int) i);
-
-            for (looper = 0; looper != USARTsize; looper++) {
-                    USART1Dev.SingleTransmit_IT( (uint8_t) textarray[looper] );
+        while (USART1Dev.SingleRead_IT(&readback)  != GenBuffer_Empty) {
+            if (RdState._state == _miStpRdStatus::Idle) {
+                if ( ( RdState.rdPointer  == 0 ) && ( readback == 0xFF ) ) {
+                    RdState.rdPointer++;
+                }
+                else if ( ( RdState.rdPointer  == 1 ) && ( readback == 0xA5 ) ) {
+                    RdState.rdPointer = 2;
+                    RdState._state    = _miStpRdStatus::Listening;
+                }
             }
+            else if (RdState._state == _miStpRdStatus::Listening) {
+                RdState.rdData[RdState.rdPointer] = readback;
 
-            QNewLine(&USART1Dev);
-            QNewLine(&USART1Dev);
-
-
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcAngPos, (char*)"Angle  ->", 'r');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcExtTmp, (char*)"E Temp ->", 'C');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcIntTmp, (char*)"I Temp ->", 'C');
-            QNewLine(&USART1Dev);
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcIntVrf, (char*)"Vref   ->", 'V');
-            QNewLine(&USART1Dev);
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcFanVlt, (char*)"Fan V  ->", 'V');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcFanCur, (char*)"Fan I  ->", 'A');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcFanAct, (char*)"Fan Act->", '%');
-            QNewLine(&USART1Dev);
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcStpVlt, (char*)"Stp V  ->", 'V');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &lcStpCur, (char*)"Stp I  ->", 'A');
-            WriteDatatoScreen(&USART1Dev, &textarray[0], &movement, (char*)"Stp Act->", '%');
-
-            QNewLine(&USART1Dev);
-            QNewLine(&USART1Dev);
-
-            if (FirstPass != 1) {
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miUSART1Task,
-                                                             (char *) "USART Task  ->",
-                                                             (char *) "            ->");
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miSPI1__Task,
-                                                             (char *) "SPI1  Task  ->",
-                                                             (char *) "            ->");
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miI2C1__Task,
-                                                             (char *) "I2C1  Task  ->",
-                                                             (char *) "            ->");
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miADC1__Task,
-                                                             (char *) "ADC1  Task  ->",
-                                                             (char *) "            ->");
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miFan___Task,
-                                                             (char *) "Fan   Task  ->",
-                                                             (char *) "            ->");
-                WriteTimeToScreen(&USART1Dev, &textarray[0], miSteperTask,
-                                                             (char *) "Stp   Task  ->",
-                                                             (char *) "            ->");
+                if (RdState.rdPointer >= 15) {
+                    RdState.rdPointer   = 0;
+                    RdState._state      = _miStpRdStatus::Idle;
+                    RdState._capt       = _miStpRdStatus::NewData;
+                }
+                else {
+                    RdState.rdPointer++;
+                }
             }
-
-            // If the Fan Enable bit has been set, then demand the Fan to FULL POWER!
-            if ((HMIString & (1 << FanEnable)) != 0) {  // Check for 'FanEnable' bit to be set
-                USART1Dev.SingleTransmit_IT('F');       // Transmit indication of Fan enabled,
-                                                        // single character 'F' at end of string
-                lcFanDmd.data   = 100.0;                // Set Fan Demand to 100%
-            }
-            // If the bit has not been set, then ensure demand is set to 0%
-            else {  lcFanDmd.data   = 0.0;  }
-
-            // If the Stepper Enable bit has been set, then request the motor to be enabled
-            if ((HMIString & (1 << StpEnable)) != 0) {  // Check for 'StpEnable' bit to be set
-                USART1Dev.SingleTransmit_IT('E');       // Transmit indication of Stepper enabled,
-                                                        // single character 'E' at end of string
-                lcStpEnableReq    = 1;                  // Set request to 1
-            }
-            // If the bit has not been set, then ensure demand is set to disabled
-            else {  lcStpEnableReq    = 0;  }
-
-            // If the stepper movement bit has been set, then request the motor to move
-            if ((HMIString & (1 << StpMove)) != 0) {    // Check for 'StpMove' bit to be set
-                USART1Dev.SingleTransmit_IT('M');       // Transmit indication of Stepper movement
-                                                        // single character 'M' at end of string
-                lcStpMoveReq      = 1;                  // Set request to 1
-            }
-            // If the bit has not been set, then ensure demand is set to no movement
-            else {  lcStpMoveReq      = 0;  }
-        }
-        // If transmit data has not been requested, then ensure that all demands are set to 0
-        // and drive the 'HMIString' to a value of 0; so as to ensure that all requested demands
-        // are reset
-        else {
-            lcFanDmd.data   = 0.0;      // Set Fan demand to 0%
-            lcStpEnableReq    = 0;      // Ensure that all motor requests are set to OFF
-            lcStpMoveReq      = 0;      //
-
-            HMIString       = 0;        // Ensure that any motor conditions which have been
-                                        // requested are now reset
         }
 
-        i++;
+        if (RdState._capt == _miStpRdStatus::NewData) {
+            RdState._capt = _miStpRdStatus::DataRead;
+
+            // Receive the USART package(s):
+            // Layout of data in alignment with "PacketTransmission.xlsx" Sheet
+            //          "USARTPacket_miStpIn"                                Version 1.0
+
+            TransmitMode    = RdState.rdData[3];
+
+            if ( (TransmitMode & (1 << EnableInputBit)) != 0) {
+
+                lcFanDmd        = DataManip::_4x8bit_2_float(&RdState.rdData[0x04]);
+
+                lcStpEnable     = RdState.rdData[0x08];
+                lcStpGear       = RdState.rdData[0x09];
+                lcStpDirct      = RdState.rdData[0x0A];
+
+                lcStpFreqDmd    = DataManip::_2x8bit_2_16bit(&RdState.rdData[0x0C]);
+            }
+            else {
+                lcFanDmd        = 0;
+                lcStpEnable     = 0;
+                lcStpGear       = 0;
+                lcStpDirct      = 0;
+                lcStpFreqDmd    = 0;
+            }
+
+        }
+
+
+/*
+        while (USART1Dev.SingleRead_IT(&readback)  != GenBuffer_Empty) {
+            if      (  (readback == 'D') || (readback == 'd') )  {
+                TransmitMode    |= (1 << TransmitDataBit);
+            }
+            else if (  (readback == 'R') || (readback == 'r') )  {
+                TransmitMode    |= (1 << ResetPktCountBt);
+            }
+        }
+        uint8     InterfaceReg
+
+        # Fan Motor request value
+        float32   FanDmd
+
+        # Stepper Requests
+        uint8     STPEnable
+        uint8     STPGear
+        uint8     STPDir
+        uint16    STPFreq
+*/
+
+        if ( (TransmitMode & (1 << ResetPktCountBt)) != 0) {
+            PckCount        = 0;        // Reset the package counter
+            TransmitMode    &= ~(1 << ResetPktCountBt);
+        }
+
+        if ( (TransmitMode & (1 << TransmitDataBit)) != 0) {
+            // Transmit the USART package(s):
+            // Layout of data in alignment with "PacketTransmission.xlsx" Sheet
+            //          "USARTPacket_miStpOut"                               Version 1.1
+            // Initially transmit new package identifier:
+            USART1Dev.SingleTransmit_IT(    0xFF                                );
+            USART1Dev.SingleTransmit_IT(    0x5A                                );
+            Transmit16bit(&USART1Dev,       PckCount                            );
+
+            /* SPI1 packets:                                                    */
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcAngPos.data        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcSPI1Flt                 );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.ComFlt        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.DevFlt        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.IdleCount     );
+
+            Transmit32bit(&USART1Dev,       miTaskData(miSPI1__Task)            );
+
+            /* I2C1 packets:                                                    */
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcExtTmp.data        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcI2C1Flt                 );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.ComFlt        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.DevFlt        );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.IdleCount     );
+
+            Transmit32bit(&USART1Dev,       miTaskData(miI2C1__Task)            );
+
+            /* ADC1 packets:                                                    */
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcIntVrf.data        );
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcIntTmp.data        );
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanVlt.data        );
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanCur.data        );
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcStpVlt.data        );
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcStpCur.data        );
+
+            USART1Dev.SingleTransmit_IT(    0x00                                );
+            USART1Dev.SingleTransmit_IT(    0x00                                );
+            USART1Dev.SingleTransmit_IT(    0x00                                );
+            USART1Dev.SingleTransmit_IT(    (uint8_t) lcIntVrf.flt              );
+
+            Transmit32bit(&USART1Dev,       miTaskData(miADC1__Task)            );
+
+            /* FAN packets:                                                     */
+            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanAct.data        );
+
+            Transmit32bit(&USART1Dev,       miTaskData(miFan___Task)            );
+
+            /* STEPPER packets:                                                 */
+            Transmit16bit(&USART1Dev,       lcStpfrq                            );
+            Transmit16bit(&USART1Dev,       lcStpste                            );
+            Transmit32bit(&USART1Dev,       lcStpcPs                            );
+
+            Transmit32bit(&USART1Dev,       miTaskData(miSteperTask)            );
+
+            /* USART1 packets:                                                  */
+            Transmit32bit(&USART1Dev,       miTaskData(miUSART1Task)            );
+
+            PckCount++;     // Increase packet counter
+
+            TransmitMode    &= ~(1 << TransmitDataBit);
+        }
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.FanDmd)   = lcFanDmd;
-        *(pxParameters.output.enable)   = lcStpEnableReq;
-        *(pxParameters.output.move)     = lcStpMoveReq;
-
+        *(pxParameters.output.FanDmd)       = lcFanDmd;
+        *(pxParameters.output.StpEnable)    = lcStpEnable;
+        *(pxParameters.output.StpGear)      = lcStpGear;
+        *(pxParameters.output.StpDirct)     = lcStpDirct;
+        *(pxParameters.output.StpFreqDmd)   = lcStpFreqDmd;
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
                                     // pass has completed
@@ -277,152 +331,22 @@ void USART1_IRQHandler(void) { USART1_Handle->IRQHandle(); };
  *************************************************************************************************/
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define     ASCIIFloatMAXchar   10      // Maximum number of characters reserved for float
-                                        // conversion
-                                        /*******************************************
-                                         * Float number     = +  12.0123
-                                         *                    ^|  |^|  |
-                                         */
+void Transmit16bit(UARTPeriph *huart, uint16_t data) {
+    uint8_t tmparray[2] = {  0  };
 
-/**
-  * @brief:  Will convert the input floating point number into ASCII array of size
-  *          'ASCIIFloatMASchar'
-  * @param:  char pointer to array to store ASCII text of float data
-  * @param:  floating point value of data to be converted into text
-  * @retval: None (void output)
-  */
-void ASCIIFloat(char *chararray, float value) {
-    uint8_t i = 0;                                  // Loop variable declared and defined
+    DataManip::_16bit_2_2x8bit(data,  &tmparray[0]);
 
-    for (i = 0; i != ASCIIFloatMAXchar; i++)        // Cycle through data within array
-        chararray[i] = '\0';                        // and set to 0 (not the value)
-
-    // Function only works correctly on parameters which are within +/-9,999, therefore if value
-    // exceeds this display limit message
-    if (value < -9999.0000)                                         // If less than -9,999
-        snprintf(&chararray[0], ASCIIFloatMAXchar+1, "---LIMIT##"); // Show -ve limit
-
-    else if (value > +9999.0000)                                    // If greater than +9,999
-        snprintf(&chararray[0], ASCIIFloatMAXchar+1, "+++LIMIT##"); // Show +ve limit
-
-    else {  // Otherwise value is within range
-        int decval = (int) (value * 10000L);        // Multiple float by 10,000 (to get 4 numbers
-                                                    // past decimal point.
-                                                    // Then convert to integer
-        snprintf(&chararray[0], ASCIIFloatMAXchar+1, "%+010d", decval);
-            // Convert the input decimal value into ASCII formal, filling the start with '0', and
-            // including sign indication (for both '+' and '-')
-        for (i = 1; i != 5; i++) {                  // Loop through the first 4 entries (ignoring
-                                                    // sign)
-            chararray[i] = chararray[i + 1];        // Shift it up (so have space for decimal
-        }                                           // point)
-
-        chararray[5] = '.';                         // Add decimal point at 'free' space
-
-        for (i = 1; i != 4; i++) {                  // Again loop through first entries (ignoring
-                                                    // sign) and stop short of decimal
-            if (chararray[i] == '0')                // If the value is '0' (filler)
-                chararray[i] = ' ';                 // turn into a space
-            else                                    // If it is not '0', then its a valid number
-                break;                              // exit loop + function
-        }
-    }
+    huart->SingleTransmit_IT( tmparray[0] );
+    huart->SingleTransmit_IT( tmparray[1] );
 }
 
-/**
-  * @brief:  Will put onto the USART transmit queue text entries to display the time delay and
-  *          duration of the task entry provided as 'curTask'
-  * @param:  USART peripheral pointer
-  * @param:  char pointer for storage of complete text string prior to USART queue
-  * @param:  integer value for the task time data to be retrieved
-  * @param:  char pointer for text to be put prior to data value for task duration
-  * @param:  char pointer for text to be put prior to data value for task delay
-  * @retval: None (void output)
-  */
-void WriteTimeToScreen(UARTPeriph *husart, char *pstorage, uint8_t curTask,
-                                           char *durText, char *delText) {
-    int USARTsize = 0;      // Local variable to store returned number of characters
-    int looper = 0;         // Looper for ASCII text
-    char floatTEXT[11];     // Create temp array for containing ASCII float conversion
-    ASCIIFloat(&floatTEXT[0], miTaskDuration(curTask)); // Convert Task duration to ASCII
+void Transmit32bit(UARTPeriph *huart, uint32_t data) {
+    uint8_t tmparray[4] = { 0 };
 
-    USARTsize = snprintf(pstorage, MaxCharinLine, "%s   %sms", durText, floatTEXT);
-        // Populate ASCII array with text string
+    DataManip::_32bit_2_4x8bit(data,  &tmparray[0]);
 
-    for (looper = 0; looper != MaxCharinLine; looper++) {   // Put data into the Transmit buffer
-        if (looper > USARTsize)                             // If loop exceeds written data
-            husart->SingleTransmit_IT( ' ' );               // Populate with spaces
-
-        else    // If within the limits of 'snprintf' output, then add entry of array to transmit
-                // queue
-            husart->SingleTransmit_IT( (uint8_t) pstorage[looper] );
-    }
-
-    QNewLine(husart);   // Put a space between the task duration text and task period text
-
-    ASCIIFloat(&floatTEXT[0], miTaskPeriod(curTask));   // Convert Period duration to ASCII
-    USARTsize = snprintf(pstorage, MaxCharinLine, "%s   %sms", delText, floatTEXT);
-        // Populate ASCII array with text string
-
-    for (looper = 0; looper != MaxCharinLine; looper++) {   // Put data into the Transmit buffer
-        if (looper > USARTsize)                             // If loop exceeds written data
-            husart->SingleTransmit_IT( ' ' );               // Populate with spaces
-
-        else    // If within the limits of 'snprintf' output, then add entry of array to transmit
-                // queue
-            husart->SingleTransmit_IT( (uint8_t) pstorage[looper] );
-    }
-
-    QNewLine(husart);   // Put a space between the task duration text and task period text
-}
-
-/**
-  * @brief:  Will put onto the USART transmit queue text entries to display the value pointed
-  *          too via "datapoint"
-  * @param:  USART peripheral pointer
-  * @param:  char pointer for storage of complete text string prior to USART queue
-  * @param:  _HALParam pointer, which contains the data and fault state to be displayed
-  * @param:  char pointer for text to be put prior to data values
-  * @param:  single character to contain the unit of data point (i.e. degrees = 'C')
-  * @retval: None (void output)
-  */
-void WriteDatatoScreen(UARTPeriph *husart, char *pstorage, _HALParam *datapoint, char *xtrText,
-                                                                                 char unit) {
-    char fltstate = 0;      // Local veraion to store character value for valid data
-
-    int USARTsize = 0;      // Local variable to store returned number of characters
-    int looper = 0;         // Looper for ASCII text
-
-    if (datapoint->flt == _HALParam::NoFault) { // If data is valid
-        fltstate = ' ';                         // Provide no fault status
-    } else                                      // Otherwise data is invalid
-        fltstate = 'X';                         // Then indicate data as bad "X"
-
-    char floatTEXT[11];     // Create temp array for containing ASCII float conversion
-    ASCIIFloat(&floatTEXT[0], datapoint->data); // Convert input data to ASCII
-
-    USARTsize = snprintf(pstorage, MaxCharinLine, "%s   %s%c  %c", xtrText, floatTEXT,
-                                                                            unit, fltstate);
-        // Populate ASCII array with text string
-    for (looper = 0; looper != MaxCharinLine; looper++) {   // Put data into the Transmit buffer
-        if (looper > USARTsize)                             // If loop exceeds written data
-            husart->SingleTransmit_IT( ' ' );               // Populate with spaces
-
-        else    // If within the limits of 'snprintf' output, then add entry of array to transmit
-                // queue
-            husart->SingleTransmit_IT( (uint8_t) pstorage[looper] );
-    }
-
-    QNewLine(husart);   // Put a space between the task duration text and task period text
-}
-
-/**
-  * @brief:  Will put onto the USART transmit queue a new line request, and return cursor to the
-  *          next line
-  * @param:  USART peripheral pointer
-  * @retval: None (void output)
-  */
-void QNewLine(UARTPeriph *husart) {
-    husart->SingleTransmit_IT( '\r' );  // Return to start
-    husart->SingleTransmit_IT( '\n' );  // New line
+    huart->SingleTransmit_IT( tmparray[0] );
+    huart->SingleTransmit_IT( tmparray[1] );
+    huart->SingleTransmit_IT( tmparray[2] );
+    huart->SingleTransmit_IT( tmparray[3] );
 }

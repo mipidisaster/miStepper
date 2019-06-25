@@ -32,13 +32,13 @@ void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, G
 
 
 /**
-  * @brief:  SPI Device Hardware Abstraction Layer task
+  * @brief:  SPI1 Device Hardware Abstraction Layer task
   * @param:  _taskSPI -> cast to a void pointer
   * @retval: None (void output)
   */
-void vSPIDeviceHAL(void const * pvParameters) {
-    _taskSPI pxParameters;
-    pxParameters = * (_taskSPI *) pvParameters;
+void vSPI1DeviceHAL(void const * pvParameters) {
+    _taskSPI1 pxParameters;
+    pxParameters = * (_taskSPI1 *) pvParameters;
     // pxParameters is to include the parameters required to configure and interface this task
     // with other tasks within the OS - see header file for parameters (config, input, output).
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
@@ -54,7 +54,7 @@ void vSPIDeviceHAL(void const * pvParameters) {
 
     // Create SPI1 class
     // =================
-    SPIPeriph   SPI1Dev(pxParameters.config.dev_handle, &SPIForm[0], SPI1_FormBuffer);
+    SPIPeriph   SPI1Dev(pxParameters.config.spi1_handle, &SPIForm[0], SPI1_FormBuffer);
     SPI1_Handle = &SPI1Dev;         // Link SPI1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup SPI Connected Device Classes ]---------------------------*/

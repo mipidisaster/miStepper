@@ -64,7 +64,7 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        I2C_HandleTypeDef                                   *dev_handle;
+        I2C_HandleTypeDef                                   *i2c1_handle;
 
     } config;
 
@@ -75,7 +75,7 @@ typedef struct {
 
     } output;
 
-}   _taskI2C;
+}   _taskI2C1;
 
 /**************************************************************************************************
  * MACROs used within task
@@ -98,7 +98,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vI2CDeviceHAL(void const * pvParameters);  // "main" task for I2C handle
+void vI2C1DeviceHAL(void const * pvParameters); // "main" task for I2C handle
 
 void I2C1_EV_IRQHandler(void);              // This task file also includes the prototype used to
 void I2C1_ER_IRQHandler(void);              // handle Interrupt Service Calls

@@ -31,13 +31,13 @@ void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrB
 
 
 /**
-  * @brief:  I2C Device Hardware Abstraction Layer task
+  * @brief:  I2C1 Device Hardware Abstraction Layer task
   * @param:  _taskI2C -> cast to a void pointer
   * @retval: None (void output)
   */
-void vI2CDeviceHAL(void const * pvParameters) {
-    _taskI2C pxParameters;
-    pxParameters = * (_taskI2C *) pvParameters;
+void vI2C1DeviceHAL(void const * pvParameters) {
+    _taskI2C1 pxParameters;
+    pxParameters = * (_taskI2C1 *) pvParameters;
     // pxParameters is to include the parameters required to configure and interface this task
     // with other tasks within the OS - see header file for parameters (config, input, output).
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
@@ -51,7 +51,7 @@ void vI2CDeviceHAL(void const * pvParameters) {
 
     // Create I2C1 class
     // =================
-    I2CPeriph   I2C1Dev(pxParameters.config.dev_handle, &I2CForm[0], I2C1_FormBuffer);
+    I2CPeriph   I2C1Dev(pxParameters.config.i2c1_handle, &I2CForm[0], I2C1_FormBuffer);
     I2C1_Handle = &I2C1Dev;         // Link I2C1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup I2C Connected Device Classes ]---------------------------*/

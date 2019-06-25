@@ -46,7 +46,15 @@
 #include <stdio.h>                      // Include the standard I/O library
 
 #include FilInd_GENBUF_HD               // Provide the template for the circular buffer class
+#include FilInd_DATMngrHD               // Provide the function set for Data Manipulation
+
 #include FilInd_USART__HD               // Include the USART class handler
+
+#include FilInd_SPIPe__HD               // Include the SPI class handler
+#include FilInd_AS5x4x_HD               // Include the device AS5x4 handler
+
+#include FilInd_I2CPe__HD               // Include the I2C class handler
+#include FilInd_AD741x_HD               // Include the device AD741x handler
 // #####
 // ##   RTOS:
 // #####
@@ -62,13 +70,18 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        UART_HandleTypeDef                                  *dev_handle;
+        UART_HandleTypeDef                                  *usart1_handle;
 
     } config;
 
     struct {
         _HALParam                                           *AngPos;
+        SPIPeriph::DevFlt                                   *SPI1CommFlt;
+        HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     *AS5048AFlt;
+
         _HALParam                                           *ExtTmp;
+        I2CPeriph::DevFlt                                   *I2C1CommFlt;
+        HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     *AD74151Flt;
 
         _HALParam                                           *IntVrf;
         _HALParam                                           *IntTmp;
@@ -79,33 +92,32 @@ typedef struct {
 
         _HALParam                                           *StpVlt;
         _HALParam                                           *StpCur;
-        _HALParam                                           *movement;
+        uint16_t                                            *StpFreqAct;
+        uint16_t                                            *StpStatAct;
+        uint32_t                                            *StpcalPost;
 
     } input;
 
     struct {
-        _HALParam                                           *FanDmd;
+        float                                               *FanDmd;
 
-        uint8_t                                             *enable;
-        uint8_t                                             *move;
+        uint8_t                                             *StpEnable;
+        uint8_t                                             *StpGear;
+        uint8_t                                             *StpDirct;
+        uint16_t                                            *StpFreqDmd;
 
     } output;
 
-}   _taskUSART;
+}   _taskUSART1;
 
 /**************************************************************************************************
  * MACROs used within task
  * ~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-#define MaxCharinLine           50      // Define maximum number of characters per line
+#define TransmitDataBit     0       // Bit position for transmitting data to be displayed
+#define ResetPktCountBt     1       // Bit position for clearing the Package counter
 
-
-#define TransmitData            0       // Bit position for transmitting data to be displayed
-
-// Following modes are only enabled if TransmitData is set TRUE
-#define FanEnable               1       // Bit position for enabling the fan motor
-#define StpEnable               2       // Bit position for enabling the stepper motor
-#define StpMove                 3       // Bit position for moving the stepper motor
+#define EnableInputBit      3       // Bit position for enabling interface with ROS
 
 /**************************************************************************************************
  * Define externally used global signals
@@ -118,7 +130,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vUSARTDeviceHAL(void const * pvParameters);    // "main" task for USART handle
+void vUSART1DeviceHAL(void const * pvParameters);   // "main" task for USART handle
 
 void USART1_IRQHandler(void);               // This task file also includes the prototype used to
                                             // handle Interrupt Service Calls

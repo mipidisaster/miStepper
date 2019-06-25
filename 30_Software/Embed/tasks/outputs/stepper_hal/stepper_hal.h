@@ -63,19 +63,23 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        TIM_HandleTypeDef                                   *dev_timer;
-        DMA_HandleTypeDef                                   *dev_dma;
+        TIM_HandleTypeDef                                   *stepper_timer;
+        DMA_HandleTypeDef                                   *stepper_dma;
 
     } config;
 
     struct {
-        uint8_t                                             *enable;
-        uint8_t                                             *move;
+        uint8_t                                             *StpEnable;
+        uint8_t                                             *StpGear;
+        uint8_t                                             *StpDirct;
+        uint16_t                                            *StpFreqDmd;
 
     } input;
 
     struct {
-        _HALParam                                           *movement;
+        uint16_t                                            *StpFreqAct;
+        uint16_t                                            *StpStatAct;
+        uint32_t                                            *StpcalPost;
 
     } output;
 
@@ -85,7 +89,16 @@ typedef struct {
  * MACROs used within task
  * ~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-// None
+#define     STP_MaxGear         0x03        // Maximum value of gear selection
+#define     STP_LowFrq          (uint16_t) STP___HAL_Time * 500
+    // Calculate the slowest pulse frequency which can be managed, by halving the iteration rate
+    // of the Stepper HAL task (defined in ms, Stepper hardware is based in us)
+#define     STP_MaxFrq          (uint16_t) 100  // Fastest STEP frequency of STEPPER
+
+#define     STP_StateEnable     0           // Bit position for STEPPER enabled flag
+#define     STP_DirectionFl     1           // Bit position for STEPPER direction flag
+
+#define     STP_GearStart       2           // Bit position for STEPPER Gearing
 
 /**************************************************************************************************
  * Define externally used global signals

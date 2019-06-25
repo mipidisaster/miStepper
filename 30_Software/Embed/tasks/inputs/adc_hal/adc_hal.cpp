@@ -48,13 +48,13 @@ void ADC1_STPMotorCurrent(ADCDMARecord *Record, float *StpCur, float *IntVRef);
 // Prototype(s) for conversion of the ADC data to usable parameters
 
 /**
-  * @brief:  ADC Hardware Abstraction Layer task
+  * @brief:  ADC1 Hardware Abstraction Layer task
   * @param:  _taskADC -> cast to a void pointer
   * @retval: None (void output)
   */
-void vADCDeviceHAL(void const * pvParameters) {
-    _taskADC pxParameters;
-    pxParameters = * (_taskADC *) pvParameters;
+void vADC1DeviceHAL(void const * pvParameters) {
+    _taskADC1 pxParameters;
+    pxParameters = * (_taskADC1 *) pvParameters;
     // pxParameters is to include the parameters required to configure and interface this task
     // with other tasks within the OS - see header file for parameters (config, input, output).
 /*---------------------------[     Configure the Internal ADC     ]---------------------------*/
@@ -64,13 +64,13 @@ void vADCDeviceHAL(void const * pvParameters) {
         // Link ADC Form to GenBuffer
 
     ADC1Buff_Handle = &ADC1GenBuff;                     // Link ADCGenBuff to global pointer
-    ADC1_Handle     = pxParameters.config.dev_handle;   // Link ADC input to global pointer
-    ADC1DMA_Handle  = pxParameters.config.dev_dma;      // Link ADC linked DMA to global pointer
+    ADC1_Handle     = pxParameters.config.adc1_handle;  // Link ADC input to global pointer
+    ADC1DMA_Handle  = pxParameters.config.adc1_dma;     // Link ADC linked DMA to global pointer
                                                         // all for ISR
 
     uint32_t calibration = 0;           // Variable for the calibrated return value
 
-    // Start calibration run for Single Ended signals (only these are used within miStepper
+    // Start calibration run for Single Ended signals (only these are used within miStepper)
     HAL_ADCEx_Calibration_Start(ADC1_Handle, ADC_SINGLE_ENDED);
 
     // Retrieve the read calibration value
@@ -116,9 +116,9 @@ void vADCDeviceHAL(void const * pvParameters) {
     ADC_Enable(ADC1_Handle);     // Enable the ADC
 
     // Enable Timer for ADC conversions
-    __HAL_TIM_CLEAR_FLAG(pxParameters.config.dev_timer,     // Ensure that update flag is already
+    __HAL_TIM_CLEAR_FLAG(pxParameters.config.adc1_timer,    // Ensure that update flag is already
                          TIM_FLAG_UPDATE);                  // cleared
-    __HAL_TIM_ENABLE(pxParameters.config.dev_timer);        // Then enable timer
+    __HAL_TIM_ENABLE(pxParameters.config.adc1_timer);       // Then enable timer
 
     LL_ADC_REG_StartConversion(ADC1_Handle->Instance);      // Start conversions!
 
@@ -302,7 +302,7 @@ void ADC1_InternalVoltage(ADCDMARecord *Record, float *IntVRef) {
     uint8_t dataloc = 0;    // Location within array for V
 
     for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + VRefLoc;      // Calculate position of data within array
+        dataloc = (ADC1_ConvPSeq * i) + VRefLoc;    // Calculate position of data within array
 
         if (Record->Analog[dataloc] == 0)           // If the data is 0
             IntVRef[i]  = 0.00L;                    // Set Vref to 0, to protect against divide by
@@ -324,13 +324,20 @@ void ADC1_InternalTemperature(ADCDMARecord *Record, float *IntTmp, float *IntVRe
     uint8_t i = 0;          // Variable to loop through number of sequences run
     uint8_t dataloc = 0;    // Location within array for V
 
-    for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + ITmpLoc;      // Calculate position of data within array
+    // Following variables are used to convert internal calibration registers to voltages (V) in
+    // float format.
+    float CAL1Volt = ( 3.0L   *   TS_CAL1 ) / ADC_Resolution;
+    float CAL2Volt = ( 3.0L   *   TS_CAL2 ) / ADC_Resolution;
 
-        IntTmp[i]   = ( ( ( ( ( (float) Record->Analog[dataloc] * IntVRef[i] ) / 3.0L )
-                               - TS_CAL1 )
-                      * (130L - 30L) ) / (TS_CAL2 - TS_CAL1) ) + 30L;
-        // Convert the ADC entry to Internal Temperature
+    for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
+        dataloc = (ADC1_ConvPSeq * i) + ITmpLoc;    // Calculate position of data within array
+
+        IntTmp[i]   = ( IntVRef[i] * (float)Record->Analog[dataloc] ) / ADC_Resolution;
+            // Get the current voltage from Temperature sensor
+        IntTmp[i]   -=  CAL1Volt;   // Account for first calibration voltage
+        IntTmp[i]   *=  (TSCAL2Tmp  -  TSCAL1Tmp) / (CAL2Volt  -  CAL1Volt);
+            // Multiply value by conversion slope
+        IntTmp[i]   +=  TSCAL1Tmp;  // Again offset based upon first calibration temperature
     }
 }
 
@@ -346,7 +353,7 @@ void ADC1_FANMotorVoltage(ADCDMARecord *Record, float *FanVlt, float *IntVRef) {
     uint8_t dataloc = 0;    // Location within array for V
 
     for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + FANVLoc;      // Calculate position of data within array
+        dataloc = (ADC1_ConvPSeq * i) + FANVLoc;    // Calculate position of data within array
 
         FanVlt[i] = ( IntVRef[i] * (float)Record->Analog[dataloc] ) / ADC_Resolution;
         FanVlt[i] *= (  (FAN_RUpper + FAN_RLower)  /  FAN_RLower  );
@@ -366,7 +373,7 @@ void ADC1_STPMotorVoltage(ADCDMARecord *Record, float *StpVlt, float *IntVRef) {
     uint8_t dataloc = 0;    // Location within array for V
 
     for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + STPVLoc;      // Calculate position of data within array
+        dataloc = (ADC1_ConvPSeq * i) + STPVLoc;    // Calculate position of data within array
 
         StpVlt[i] = ( IntVRef[i] * (float)Record->Analog[dataloc] ) / ADC_Resolution;
         StpVlt[i] *= (  (STP_RUpper + STP_RLower)  /  STP_RLower  );
@@ -386,7 +393,7 @@ void ADC1_FANMotorCurrent(ADCDMARecord *Record, float *FanCur, float *IntVRef) {
     uint8_t dataloc = 0;    // Location within array for V
 
     for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + FANILoc;      // Calculate position of data within array
+        dataloc = (ADC1_ConvPSeq * i) + FANILoc;    // Calculate position of data within array
 
         FanCur[i] = ( IntVRef[i] * (float)Record->Analog[dataloc] ) / ADC_Resolution;
         FanCur[i] *= (  1  / (FAN_CS30 * FAN_Rsense)  );
@@ -406,7 +413,7 @@ void ADC1_STPMotorCurrent(ADCDMARecord *Record, float *StpCur, float *IntVRef) {
     uint8_t dataloc = 0;    // Location within array for V
 
     for (i = 0; i != ADC1_NumSeq; i++) {            // Loop through copies of data within record
-        dataloc = (ADC1_NumSeq * i) + STPILoc;      // Calculate position of data within array
+        dataloc = (ADC1_ConvPSeq * i) + STPILoc;    // Calculate position of data within array
 
         StpCur[i] = ( IntVRef[i] * (float)Record->Analog[dataloc] ) / ADC_Resolution;
         StpCur[i] *= (  1  / (STP_CS30 * STP_Rsense)  );

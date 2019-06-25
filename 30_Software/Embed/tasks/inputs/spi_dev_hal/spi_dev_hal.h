@@ -64,7 +64,7 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        SPI_HandleTypeDef                                   *dev_handle;
+        SPI_HandleTypeDef                                   *spi1_handle;
 
     } config;
 
@@ -75,7 +75,7 @@ typedef struct {
 
     } output;
 
-}   _taskSPI;
+}   _taskSPI1;
 
 /**************************************************************************************************
  * MACROs used within task
@@ -98,7 +98,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vSPIDeviceHAL(void const * pvParameters);  // "main" task for SPI handle
+void vSPI1DeviceHAL(void const * pvParameters); // "main" task for SPI handle
 
 void SPI1_IRQHandler(void);                 // This task file also includes the prototype used to
                                             // handle Interrupt Service Calls

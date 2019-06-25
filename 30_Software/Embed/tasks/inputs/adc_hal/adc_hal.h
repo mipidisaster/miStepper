@@ -61,9 +61,9 @@ extern "C" {
  *************************************************************************************************/
 typedef struct {
     struct {
-        ADC_HandleTypeDef                                   *dev_handle;
-        DMA_HandleTypeDef                                   *dev_dma;
-        TIM_HandleTypeDef                                   *dev_timer;
+        ADC_HandleTypeDef                                   *adc1_handle;
+        DMA_HandleTypeDef                                   *adc1_dma;
+        TIM_HandleTypeDef                                   *adc1_timer;
 
     } config;
 
@@ -79,17 +79,19 @@ typedef struct {
 
     } output;
 
-}   _taskADC;
+}   _taskADC1;
 
 /**************************************************************************************************
  * MACROs used within task
  * ~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 // STM32 Hardware register location for Internal Temperature and VRef calibration
-#define TS_CAL1 *((uint16_t*) 0x1FFF75A8)   // 1034
-#define TS_CAL2 *((uint16_t*) 0x1FFF75CA)   // 1367
+#define TS_CAL1         *((uint16_t*) 0x1FFF75A8UL)     // 1034
+#define TSCAL1Tmp       30L                             // Tempature at calibration point 1
+#define TS_CAL2         *((uint16_t*) 0x1FFF75CAUL)     // 1367
+#define TSCAL2Tmp       130L                            // Tempature at calibration point 2
 
-#define VREFINT *((uint16_t*) 0x1FFF75AA)
+#define VREFINT         *((uint16_t*) 0x1FFF75AAUL)
 
 #define ADC_Resolution  4095L
 
@@ -125,7 +127,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vADCDeviceHAL(void const * pvParameters);  // "main" task for ADC handle
+void vADC1DeviceHAL(void const * pvParameters); // "main" task for ADC handle
 
 void ADC1_IRQHandler(void);                 // This task file also includes the prototype used to
 void DMA1_Channel1_IRQHandler(void);        // handle Interrupt Service Calls

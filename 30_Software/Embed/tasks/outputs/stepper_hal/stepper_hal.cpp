@@ -71,7 +71,8 @@ void vSTPMotorHAL(void const * pvParameters) {
      *                      number of STEPs that has been taken
      *********************************************************************************************/
 
-    STPConfig.PulseDMAAddress   = (uint32_t) &pxParameters.config.dev_timer->Instance->CCR3;//[1]
+    STPConfig.PulseDMAAddress   = (uint32_t) &pxParameters.config.stepper_timer->Instance->CCR3;
+                                                                                            //[1]
     STPConfig.EnbTIMDMA        = TIM_DMA_CC3;                                               //[2]
     STPConfig.PulsEGRBit       = TIM_EVENTSOURCE_CC3;                                       //[3]
     STPConfig.PulsSRBit        = TIM_FLAG_CC3;                                              //[4]
@@ -80,7 +81,7 @@ void vSTPMotorHAL(void const * pvParameters) {
     STPConfig.CounSRBit        = TIM_FLAG_CC2;                                              //[6]
     STPConfig.CounIntBit       = TIM_IT_CC2;                                                //[7]
 
-    Stepper NEMA(pxParameters.config.dev_timer, pxParameters.config.dev_dma,
+    Stepper NEMA(pxParameters.config.stepper_timer, pxParameters.config.stepper_dma,
                 // Generate the output signal for STEP 'pulse'
             ( TIM_CCxN_ENABLE << TIM_CHANNEL_3 ),   // The output channel pin for enabling the
                                                     // output for 'Capture/Compare 3'
@@ -96,16 +97,27 @@ void vSTPMotorHAL(void const * pvParameters) {
 
     // Create local version of linked signals (prefix with "lc")
     // #=======================================================#
-    uint8_t lcenable;           // Local copy of input enable flag
-    uint8_t lcmove;             // Local copy of input movement flag
-    uint8_t counter = 0;        // Counter to get desired movement
-    _HALParam   curmovement = {.data = -999.0,             // Initialise signal with default value
-                               .flt  = _HALParam::Faulty };// Indicate data as fault
+    uint8_t     lcStpEnable;    // Local copy of input enabling flag
+    uint8_t     lcStpGear;      // Local copy of input Stepper gear selection
+    uint8_t     lcStpDirct;     // Local copy of input Stepper direction
+    uint16_t    lcStpFreqDmd;   // Local copy of input Stepper Frequency
 
-#define UPPERCOUNT          3   // To make movement occur every 1s, this task runs at 250ms
+    // Output to this task
+    // #=================#
+    uint16_t    StpStatAct  = 0;// Output register for Stepper State
+    uint16_t    StpFreqAct  = 0;// Output value for Actual Stepper Frequency
 
+    uint8_t     StpCurDir   = 0;// Captured selected direction of motor
+    uint8_t     StpCurGer   = 0;// Captured selected gearing of motor
+
+    uint32_t    PolCountVal = 0;// Set value for internal calculation of position based on STEP
+                                // count
+
+
+    Stepper::CountPanel::Polarity   MtrPol = Stepper::CountPanel::Polarity::UP;
     GPIO::State   MtrDir = GPIO::State::LOW;    // Variable used to store the direction of the
                                                 // motor
+
 
     /* Following contains the main aspects of this task-------------------------*/
     /****************************************************************************/
@@ -124,74 +136,120 @@ void vSTPMotorHAL(void const * pvParameters) {
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // Capture any new updates to input signals and link to local internals
-        lcenable    = *(pxParameters.input.enable);
-        lcmove      = *(pxParameters.input.move);
+        lcStpEnable     = *(pxParameters.input.StpEnable);
+        lcStpGear       = *(pxParameters.input.StpGear);
+        lcStpDirct      = *(pxParameters.input.StpDirct);
+        lcStpFreqDmd    = *(pxParameters.input.StpFreqDmd);
 
-        // Then check if a request to ENABLE the stepper has been made (i.e. enable is not zero)
-        if (lcenable != 0) {    // If there has been a request to enable then...
-            STP_ENABLE.setValue(GPIO::State::LOW); // Set the ENABLE pin to LOW (enable)
+        // Ensure that all provided data is within acceptable limits:
+        if (lcStpGear > STP_MaxGear) {      // If gear selection is greater than amount of gears
+            lcStpGear = STP_MaxGear;        // Limit to maximum gear
+        }
 
-            curmovement.flt = _HALParam::NoFault;
-            // If the motor is enabled, so movement to non-faulty
+        if (lcStpFreqDmd > STP_LowFrq) {        // If demand is set at slower than can be managed
+            lcStpFreqDmd    = 0;                // default to "0" - OFF
+        } else if (lcStpFreqDmd == 0) {         // If demand is zero, do nothing
 
-            // Now that the Stepper is enabled, check to see a movement request has been made,
-            // (i.e. move is not zero)
-            if (lcmove != 0) {  // If there has been a request to move then ...
-                if (counter == 0) {         // Only when counter is zero
-                    counter = UPPERCOUNT;   // reset counter for next loop
+        } else if (lcStpFreqDmd < STP_MaxFrq) { // If demand is set at faster than can be managed
+            lcStpFreqDmd    = STP_MaxFrq;       // Saturate at maximum speed
+        }
 
-                    if (MtrDir == GPIO::State::LOW) {       // If Motor direction is to be LOW
-                        curmovement.data= +10.00;           // Indicate a position movement
 
-                        NEMA.newPosition(MtrDir, 0, 20000, 10,
-                                         Stepper::CountPanel::Polarity::UP, 1);
-                        // Put in a request for the Stepper interrupt handler, to move the motor
-                        // by 10 steps at 20000 counts - (50Hz, each step is 0.02s)
+        // Check if the request to ENABLE the stepper has been made (i.e. StpEnable is not zero)
+        if (lcStpEnable != 0) {                     // If motor has been enabled
+            STP_ENABLE.setValue(GPIO::State::LOW);  // Set the ENABLE pin to LOW (enable)
+            StpStatAct  |= (1 << STP_StateEnable);  // Setup Stepper Status to indicate enabled
 
-                        MtrDir = GPIO::State::HIGH;         // Change direction for next loop
-                    } else {
-                        curmovement.data= -10.00;           // Indicate a position movement
+            // First need to check to see if the requested demand is "0", i.e. off, and that this
+            // has NOT been captured yet
+            if (lcStpFreqDmd   == 0) {  // If new demand is for no motion
+                if (StpFreqAct != 0) {  // and this has NOT been captured yet
+                    StpFreqAct  = 0;    // Ensure the stationary request is captured (so not run
+                                        // again)
+                    StpCurGer   = 0;    // Capture gear is zero
+                    StpCurDir   = 0;    // Capture Direction is zero
 
-                        NEMA.newPosition(MtrDir, 0, 20000, 10,
-                                         Stepper::CountPanel::Polarity::DOWN, 1);
-                        // Put in a request for the Stepper interrupt handler, to move the motor
-                        // by 10 steps at 20000 counts - (50Hz, each step is 0.02s)
-                        MtrDir = GPIO::State::LOW;          // Change direction for next loop
+                    if (NEMA.ShdForm.cMode != Stepper::Mode::Disabled) {
+                        // If the motor is in motion, then force the motor to stop
+                        NEMA.forceSTOP();
+                    }
+            } }
+            else {
+                // Now request is for any other speed (and has been limited to acceptable
+                // parameters)
+                // Check to see if any of the parameters have actually changed, i.e. frequency,
+                // gear ratio, or direction
+                if ( (lcStpFreqDmd != StpFreqAct)  ||  (lcStpGear    != StpCurGer)   ||
+                     (lcStpDirct   != StpCurDir) )  {
+
+                    if (lcStpDirct == 0) {          // If direction is "0"
+                        MtrDir = GPIO::State::HIGH; // Set DIR pin HIGH
+                        MtrPol = Stepper::CountPanel::Polarity::UP;     // Set polarity to "UP"
+                    } else {                        // Otherwise
+                        MtrDir = GPIO::State::LOW;  // Set DIR pin LOW
+                        MtrPol = Stepper::CountPanel::Polarity::DOWN;   // Set polarity to "DOWN"
                     }
 
-                }
-                else {
-                    counter--;      // Decrement counter
+                    // Based upon the selected Gear, select the desired STEP count
+                    if          (lcStpGear == 0) {      // If at "0" gear
+                        PolCountVal     =   16;         // Increment by 16 counts (1    full step)
+                    } else if   (lcStpGear == 1) {      // If at "1" gear
+                        PolCountVal     =    8;         // Increment by  8 counts (1/2  full step)
+                    } else if   (lcStpGear == 2) {      // If at "2" gear
+                        PolCountVal     =    4;         // Increment by  4 counts (1/4  full step)
+                    } else if   (lcStpGear == 3) {      // If at "3" gear
+                        PolCountVal     =    2;         // Increment by  2 counts (1/8  full step)
+                    //-----------------------------------------------------------------------------
+                    // If selected gear is between 3 and 7, then force the gear to be 3
+                    } else if   (lcStpGear == 4) {
+                        lcStpGear       =    3;
+                        PolCountVal     =    2;
+                    } else if   (lcStpGear == 5) {
+                        lcStpGear       =    3;
+                        PolCountVal     =    2;
+                    } else if   (lcStpGear == 6) {
+                        lcStpGear       =    3;
+                        PolCountVal     =    2;
+                    //-----------------------------------------------------------------------------
+                    } else if   (lcStpGear == 7) {      // If at "7" gear
+                        PolCountVal     =    1;         // Increment by  1 counts (1/16 full step)
+                    }
+
+                    // Put new speed into buffer
+                    NEMA.newVelocity(MtrDir, lcStpGear, lcStpFreqDmd, MtrPol, PolCountVal);
+
+                    // Now capture new values:
+                    StpFreqAct  = lcStpFreqDmd;
+                    StpCurGer   = lcStpGear;
+                    StpCurDir   = lcStpDirct;
                 }
             }
-
-            // If there is no movement request then
-            else {
-                // set return movement indication to '0'
-                curmovement.data= 0.00;     // Set 'curmovement' to zero
-                // If the motor is enabled, so movement to non-faulty
-                counter         = 0;        // Reset counter
-
-                MtrDir = GPIO::State::LOW;  // Return the motor direction flag to 'LOW'
-                STP_RESET.setValue(GPIO::State::LOW);
+        } else {        // If the motor has not been enabled then
+            if (NEMA.ShdForm.cMode != Stepper::Mode::Disabled) {    // If the motor is in motion
+                NEMA.forceSTOP();           // Force stop of the motor
             }
-
-        }
-
-        // If there has been no request then, indicate that no movement is to occur.
-        // and disable the Stepper IC
-        else {
-            curmovement.data= 0.00;     // Set 'curmovement' to zero
-            curmovement.flt = _HALParam::Faulty;
-            // If the motor is disabled, set as faulty
-
-            counter     = 0;    // Reset counter
-
+            // Otherwise motor is stationary
             STP_ENABLE.setValue(GPIO::State::HIGH); // Set the ENABLE pin to HIGH (disabled)
+
+            StpFreqAct  = 0;    // Capture that the motor is now stationary
+            StpCurGer   = 0;    // Capture gear is zero
+            StpCurDir   = 0;    // Capture Direction is zero
+            StpStatAct  = 0;    // Setup Status to indicate all off
         }
+
+        if (StpCurDir == 0) {                       // If direction is set to "0"
+            StpStatAct  &= ~(1 << STP_DirectionFl); // Clear bit in register for Direction
+        } else {                                    // Otherwise
+            StpStatAct  |= (1 << STP_DirectionFl);  // Set bit in register for Direction
+        }
+
+        StpStatAct      &= (STP_MaxGear << STP_GearStart);  // Clear position(s) for gearing
+        StpStatAct      |= (StpCurGer   << STP_GearStart);  // Now set with current gearing
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.movement)   = curmovement;
+        *(pxParameters.output.StpFreqAct)   = StpFreqAct;
+        *(pxParameters.output.StpStatAct)   = StpStatAct;
+        *(pxParameters.output.StpcalPost)   = NEMA.calcPos;
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
@@ -227,4 +285,3 @@ void TIM1_CC_IRQHandler(void)       {  Stepper_Handle->IRQCounterCCHandler();  }
  * ===============================================================================================
  *************************************************************************************************/
 // None
-

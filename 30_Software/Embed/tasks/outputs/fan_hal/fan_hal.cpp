@@ -39,19 +39,19 @@ void vFANMotorHAL(void const * pvParameters) {
 /*---------------------------[     Setup Timer for PWM control    ]---------------------------*/
 
     // Setup and kick-off the PWM on channel 2 of timer 2
-    TIM_CCxChannelCmd(pxParameters.config.dev_handle->Instance, // Enable TIMER Channel 2
+    TIM_CCxChannelCmd(pxParameters.config.fan_timer->Instance,  // Enable TIMER Channel 2
                       TIM_CHANNEL_2,                            // Compare Output Mode
                       TIM_CCx_ENABLE);                          //
 
-    __HAL_TIM_MOE_ENABLE(pxParameters.config.dev_handle);
+    __HAL_TIM_MOE_ENABLE(pxParameters.config.fan_timer);
     // As TIM15 (linked input) contains the break register(s), need to enable full timer
     // functionality
 
-    __HAL_TIM_ENABLE_IT(pxParameters.config.dev_handle,         // Enable TIM15 Update interrupt
+    __HAL_TIM_ENABLE_IT(pxParameters.config.fan_timer,          // Enable TIM15 Update interrupt
                         TIM_IT_UPDATE);                         // used for time schedule logging
         // Note the interrupt handling is done within main.ccp and main.h
 
-    __HAL_TIM_ENABLE(pxParameters.config.dev_handle);           // Start timer!
+    __HAL_TIM_ENABLE(pxParameters.config.fan_timer);            // Start timer!
 
 
 /*---------------------------[      PWM Timer is now running      ]---------------------------*/
@@ -82,23 +82,25 @@ void vFANMotorHAL(void const * pvParameters) {
             lcFanDmd.flt    = _HALParam::NoFault;   // and indicate no fault (will NEVER get set
                                                     // true)
 
-            *(pxParameters.input.FanDmd)    = lcFanDmd;
+            *(pxParameters.input.FanDmd)    = lcFanDmd.data;
             // Now link this value to the boundary
         }
-        else                                            // Any other time
-            lcFanDmd    = *(pxParameters.input.FanDmd); // Task reads in the Fan Demand
+        else                                                // Any other time
+            lcFanDmd.data   = *(pxParameters.input.FanDmd); // Task reads in the Fan Demand
 
         if (lcFanDmd.data <= 0.00) {        // If Fan demand is 0, i.e. Switch off PWM output
-            __HAL_TIM_SET_COMPARE(pxParameters.config.dev_handle,
+            __HAL_TIM_SET_COMPARE(pxParameters.config.fan_timer,
                                   TIM_CHANNEL_2,
                                   0);
+
+            lcFanDmd.data   = 0;
         }
         else {
             if (lcFanDmd.data >= 100.0)     // If demand is greater than PWM Defined width
                 lcFanDmd.data = 100.0;      // Limit to Defined PWM width
 
             tempcalc    = (uint16_t) ((lcFanDmd.data / 100.0 ) * PWMWidth);
-            __HAL_TIM_SET_COMPARE(pxParameters.config.dev_handle,
+            __HAL_TIM_SET_COMPARE(pxParameters.config.fan_timer,
                                   TIM_CHANNEL_2,
                                   tempcalc);
         }

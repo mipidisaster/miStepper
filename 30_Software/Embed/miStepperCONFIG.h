@@ -28,14 +28,14 @@
 // state of value.
 typedef struct {
     float   data;
-    enum FltState : uint8_t {NoFault = 0, Faulty = 1} flt;
+    enum FltState : uint8_t {NoFault = 0x00, Faulty = 0x5A} flt;
 }   _HALParam;
 
 // Following structure defines a global type for containing the status of various
 // devices/communication systems used within device
 template <typename Dev, typename Comm>
 struct HALDevComFlt {
-    uint16_t    IdleCount;
+    uint8_t     IdleCount;
 
     Dev         DevFlt;
     Comm        ComFlt;
@@ -71,22 +71,22 @@ struct HALDevComFlt {
 /*-----------------------------------------------------------
  * Task timing
  *---------------------------------------------------------*/
-#define USART_DEV_Time      1000 //ms   -- Iteration rate for the USART Device/HAL task
+#define USART_DEV_Time         5 //ms   -- Iteration rate for the USART Device/HAL task
 
-#define SPI___DEV_Time       500 //ms   -- Iteration rate for the SPI Device/HAL task
-#define I2C___DEV_Time       500 //ms   -- Iteration rate for the I2C Device/HAL task
-#define ADC___DEV_Time       250 //ms   -- Iteration rate for the ADC Device/HAL task
+#define SPI___DEV_Time         5 //ms   -- Iteration rate for the SPI Device/HAL task
+#define I2C___DEV_Time         5 //ms   -- Iteration rate for the I2C Device/HAL task
+#define ADC___DEV_Time         5 //ms   -- Iteration rate for the ADC Device/HAL task
 /** READ ME BEFORE CHANGING 'ADC___DEV_Time'
   *
   * Within STM32CubeMX need to configure TIM6 so as to have a rate fastes then this
   *     Current configuration   = fcpu      = 80MHz
   *     TIM6 Prescaler          = 3999      = 80MHz / (3999 + 1)    = 20kHz       50us
-  *         Counter Period      = 3999      = 20kHz / ( 999 + 1)    = 20 Hz       50ms
-  *         ADC1_NumSeq         = 5         = 20 Hz / 5             = 4  Hz      250ms
+  *         Counter Period      = 3999      = 20kHz / (  19 + 1)    = 1 kHz        1ms
+  *         ADC1_NumSeq         = 5         = 1 kHz / 5             = 200Hz        5ms
   ***********************************************************************************************/
 
-#define FAN___HAL_Time       250 //ms   -- Iteration rate for the FAN HAL task
-#define STP___HAL_Time       250 //ms   -- Iteration rate for the Stepper HAL task
+#define FAN___HAL_Time       100 //ms   -- Iteration rate for the FAN HAL task
+#define STP___HAL_Time       100 //ms   -- Iteration rate for the Stepper HAL task
 
 
 /*-----------------------------------------------------------
@@ -114,7 +114,7 @@ struct _taskTime {
 
 #define TimeDomainChng  20L         // Multiplier to convert the 'ms' task times stated above
                                     // to 'counts' based upon the Time stats counter
-/** READ ME BEFORE CHANGING 'TimeDoaminChng'
+/** READ ME BEFORE CHANGING 'TimeDomainChng'
   *
   * Currently the counter used to observe the task duration and periods is based upon TIM15,
   * which currently set to:
@@ -132,5 +132,7 @@ void ticStartTask(uint8_t curTask);     // Global prototype for capturing the st
 void tocStopTask(uint8_t curTask);      // Global prototype for capturing the stop time of task
 float miTaskDuration(uint8_t curTask);  // Global prototype for returning the Task Duration (ms)
 float miTaskPeriod(uint8_t curTask);    // Global prototype for returning the Task Period (ms)
+uint32_t miTaskData(uint8_t curTask);   // Global prototype for returning the Task Data
+                                        // Duration and Period (ms)
 
 #endif /* MISTEPPERCONFIG_H_ */
