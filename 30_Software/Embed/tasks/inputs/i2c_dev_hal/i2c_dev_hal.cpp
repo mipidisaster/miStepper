@@ -1,9 +1,9 @@
 /**************************************************************************************************
  * @file        i2c_dev_hal.cpp
  * @author      Thomas
- * @version     V0.1
- * @date        09 Mar 2019
- * @brief       << Manually Entered >>
+ * @version     V1.1
+ * @date        25 Jun 2019
+ * @brief       Source file for I2C Device task handler
  **************************************************************************************************
   @ attention
 

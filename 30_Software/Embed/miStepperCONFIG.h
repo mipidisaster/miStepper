@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        miStepperCONFIG.h
  * @author      Thomas
- * @version     V0.1
- * @date        09 Mar 2019
+ * @version     V0.2
+ * @date        25 Jun 2019
  * @brief       Configuration parameters for miStepper functions
  **************************************************************************************************
   @ attention

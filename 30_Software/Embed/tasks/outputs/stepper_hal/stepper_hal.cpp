@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        stepper_hal.cpp
  * @author      Thomas
- * @version     V0.1
- * @date        09 Mar 2019
+ * @version     V1.1
+ * @date        25 Jun 2019
  * @brief       Source file for Stepper Motor task handler
  **************************************************************************************************
   @ attention
