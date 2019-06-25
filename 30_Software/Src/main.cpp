@@ -24,7 +24,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "FileIndex.h"
 #include "EmbedIndex.h"
 #include <stdio.h>
 
@@ -85,11 +84,11 @@ osThreadId STPMotorManageHandle;
 volatile _miTimeTrack   TimeKeeper = 0;
 volatile _taskTime      TimeSheet[MiTasksStats] = { 0 };
 
-_taskSPI    xSPIpass;
-_taskI2C    xI2Cpass;
-_taskADC    xADCpass;
+_taskSPI1   xSPI1pass;
+_taskI2C1   xI2C1pass;
+_taskADC1   xADC1pass;
 
-_taskUSART  xUSARTpass;
+_taskUSART1 xUSART1pass;
 
 _taskFAN    xFANpass;
 _taskSTP    xSTPpass;
@@ -104,15 +103,21 @@ _HALParam                                           IntTmp;
 
 _HALParam                                           FanVlt;
 _HALParam                                           FanCur;
-_HALParam                                           FanDmd;
 _HALParam                                           FanAct;
+
+float                                               FanDmd = 0;
 
 _HALParam                                           StpVlt;
 _HALParam                                           StpCur;
-_HALParam                                           movement;
+uint16_t                                            StpFreqAct  = 0;
+uint16_t                                            StpStatAct  = 0;
+uint32_t                                            StpcalPost  = 0;
 
-uint8_t                                             enable;
-uint8_t                                             move;
+uint8_t                                             StpEnable   = 0;
+uint8_t                                             StpGear     = 0;
+uint8_t                                             StpDirct    = 0;
+uint16_t                                            StpFreqDmd  = 0;
+                    // Dmd of 18751, with gear of 7, should get 1rpm
 
 // Maintenance fault flags
 //~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,10 +140,10 @@ static void MX_TIM6_Init(void);
 static void MX_TIM15_Init(void);
 static void MX_TIM1_Init(void);
 void StartDefaultTask(void const * argument);
-extern void vSPIDeviceHAL(void const * argument);
-extern void vUSARTDeviceHAL(void const * argument);
-extern void vI2CDeviceHAL(void const * argument);
-extern void vADCDeviceHAL(void const * argument);
+extern void vSPI1DeviceHAL(void const * argument);
+extern void vUSART1DeviceHAL(void const * argument);
+extern void vI2C1DeviceHAL(void const * argument);
+extern void vADC1DeviceHAL(void const * argument);
 extern void vFANMotorHAL(void const * argument);
 extern void vSTPMotorHAL(void const * argument);
 
@@ -190,67 +195,85 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /* RTOS Linkage Configuration-----------------------------------------------*/
   // Setup signal linkage for the SPI task
-  xSPIpass.config.dev_handle    = &hspi1;
-  xSPIpass.output.SPI1CommFlt   = &SPI1CommFlt;
-  xSPIpass.output.AS5048AFlt    = &AS5048AFlt;
-  xSPIpass.output.AngPos        = &AngPos;
+  xSPI1pass.config.spi1_handle      = &hspi1;
 
+  xSPI1pass.output.SPI1CommFlt      = &SPI1CommFlt;
+  xSPI1pass.output.AS5048AFlt       = &AS5048AFlt;
+  xSPI1pass.output.AngPos           = &AngPos;
+
+  xUSART1pass.input.AngPos          = xSPI1pass.output.AngPos;      // Ang Position     to USART
+  xUSART1pass.input.SPI1CommFlt     = xSPI1pass.output.SPI1CommFlt; // Faults           to USART
+  xUSART1pass.input.AS5048AFlt      = xSPI1pass.output.AS5048AFlt;  // Faults           to USART
 
   // Setup signal linkage for the I2C task
-  xI2Cpass.config.dev_handle    = &hi2c1;
-  xI2Cpass.output.I2C1CommFlt   = &I2C1CommFlt;
-  xI2Cpass.output.AD74151Flt    = &AD74151Flt;
-  xI2Cpass.output.ExtTmp        = &ExtTmp;
+  xI2C1pass.config.i2c1_handle      = &hi2c1;
 
+  xI2C1pass.output.I2C1CommFlt      = &I2C1CommFlt;
+  xI2C1pass.output.AD74151Flt       = &AD74151Flt;
+  xI2C1pass.output.ExtTmp           = &ExtTmp;
+
+  xUSART1pass.input.ExtTmp          = xI2C1pass.output.ExtTmp;      // Ext Temperature  to USART
+  xUSART1pass.input.I2C1CommFlt     = xI2C1pass.output.I2C1CommFlt; // Faults           to USART
+  xUSART1pass.input.AD74151Flt      = xI2C1pass.output.AD74151Flt;  // Faults           to USART
 
   // Setup signal linkage for the ADC task
-  xADCpass.config.dev_handle    = &hadc1;
-  xADCpass.config.dev_dma       = &hdma_adc1;
-  xADCpass.config.dev_timer     = &htim6;
+  xADC1pass.config.adc1_handle      = &hadc1;
+  xADC1pass.config.adc1_dma         = &hdma_adc1;
+  xADC1pass.config.adc1_timer       = &htim6;
 
-  xADCpass.output.IntVrf        = &IntVrf;
-  xADCpass.output.IntTmp        = &IntTmp;
+  xADC1pass.output.IntVrf           = &IntVrf;
+  xADC1pass.output.IntTmp           = &IntTmp;
 
-  xADCpass.output.FanVlt        = &FanVlt;
-  xADCpass.output.FanCur        = &FanCur;
+  xADC1pass.output.FanVlt           = &FanVlt;
+  xADC1pass.output.FanCur           = &FanCur;
 
-  xADCpass.output.StpVlt        = &StpVlt;
-  xADCpass.output.StpCur        = &StpCur;
+  xADC1pass.output.StpVlt           = &StpVlt;
+  xADC1pass.output.StpCur           = &StpCur;
 
+  xUSART1pass.input.IntVrf          = xADC1pass.output.IntVrf;      // Int Voltage      to USART
+  xUSART1pass.input.IntTmp          = xADC1pass.output.IntTmp;      // Int Temperature  to USART
+
+  xUSART1pass.input.FanVlt          = xADC1pass.output.FanVlt;      // Fan Voltage      to USART
+  xUSART1pass.input.FanCur          = xADC1pass.output.FanCur;      // Fan Current      to USART
+
+  xUSART1pass.input.StpVlt          = xADC1pass.output.StpVlt;      // STP Voltage      to USART
+  xUSART1pass.input.StpCur          = xADC1pass.output.StpCur;      // STP Current      to USART
 
   // Setup signal linkage for the USART task
-  xUSARTpass.config.dev_handle  = &huart1;
+  xUSART1pass.config.usart1_handle  = &huart1;
 
-  xUSARTpass.input.AngPos       = &AngPos;
-  xUSARTpass.input.ExtTmp       = &ExtTmp;
+  xUSART1pass.output.FanDmd         = &FanDmd;
 
-  xUSARTpass.input.IntVrf       = &IntVrf;
-  xUSARTpass.input.IntTmp       = &IntTmp;
+  xFANpass.input.FanDmd             = xUSART1pass.output.FanDmd;    // Fan Demand       to USART
 
-  xUSARTpass.input.FanVlt       = &FanVlt;
-  xUSARTpass.input.FanCur       = &FanCur;
-  xUSARTpass.input.FanAct       = &FanAct;
-  xUSARTpass.output.FanDmd      = &FanDmd;
+  xUSART1pass.output.StpEnable      = &StpEnable;
+  xUSART1pass.output.StpGear        = &StpGear;
+  xUSART1pass.output.StpDirct       = &StpDirct;
+  xUSART1pass.output.StpFreqDmd     = &StpFreqAct;
 
-  xUSARTpass.input.StpVlt       = &StpVlt;
-  xUSARTpass.input.StpCur       = &StpCur;
-  xUSARTpass.input.movement     = &movement;
-  xUSARTpass.output.enable      = &enable;
-  xUSARTpass.output.move        = &move;
-
+  xSTPpass.input.StpEnable          = xUSART1pass.output.StpEnable;
+  xSTPpass.input.StpGear            = xUSART1pass.output.StpGear;
+  xSTPpass.input.StpDirct           = xUSART1pass.output.StpDirct;
+  xSTPpass.input.StpFreqDmd         = xUSART1pass.output.StpFreqDmd;
 
   // Setup signal linkage for the FAN task
-  xFANpass.config.dev_handle    = &htim15;
-  xFANpass.input.FanDmd         = &FanDmd;
-  xFANpass.output.FanAct        = &FanAct;
+  xFANpass.config.fan_timer         = &htim15;
+
+  xFANpass.output.FanAct            = &FanAct;
+  xUSART1pass.input.FanAct          = xFANpass.output.FanAct;
 
 
   // Setup signal linkage for the STEPPER task
-  xSTPpass.config.dev_timer     = &htim1;
-  xSTPpass.config.dev_dma       = &hdma_tim1_ch3;
-  xSTPpass.input.enable         = &enable;
-  xSTPpass.input.move           = &move;
-  xSTPpass.output.movement      = &movement;
+  xSTPpass.config.stepper_timer     = &htim1;
+  xSTPpass.config.stepper_dma       = &hdma_tim1_ch3;
+
+  xSTPpass.output.StpFreqAct        = &StpFreqAct;
+  xSTPpass.output.StpStatAct        = &StpStatAct;
+  xSTPpass.output.StpcalPost        = &StpcalPost;
+
+  xUSART1pass.input.StpFreqAct      = xSTPpass.output.StpFreqAct;   // STP Frequency    to USART
+  xUSART1pass.input.StpStatAct      = xSTPpass.output.StpStatAct;   // STP Status       to USART
+  xUSART1pass.input.StpcalPost      = xSTPpass.output.StpcalPost;   // STP calc Posit   to USART
 
   /* USER CODE END 2 */
 
@@ -276,20 +299,20 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of SPIDeviceManage */
-  osThreadDef(SPIDeviceManage, vSPIDeviceHAL, osPriorityNormal, 0, 384);
-  SPIDeviceManageHandle = osThreadCreate(osThread(SPIDeviceManage), (void *) &xSPIpass);
+  osThreadDef(SPIDeviceManage, vSPI1DeviceHAL, osPriorityNormal, 0, 384);
+  SPIDeviceManageHandle = osThreadCreate(osThread(SPIDeviceManage), (void *) &xSPI1pass);
 
   /* definition and creation of USARTDeviceManage */
-  osThreadDef(USARTDeviceManage, vUSARTDeviceHAL, osPriorityBelowNormal, 0, 384);
-  USARTDeviceManageHandle = osThreadCreate(osThread(USARTDeviceManage), (void *) &xUSARTpass);
+  osThreadDef(USARTDeviceManage, vUSART1DeviceHAL, osPriorityBelowNormal, 0, 384);
+  USARTDeviceManageHandle = osThreadCreate(osThread(USARTDeviceManage), (void *) &xUSART1pass);
 
   /* definition and creation of I2CDeviceManage */
-  osThreadDef(I2CDeviceManage, vI2CDeviceHAL, osPriorityNormal, 0, 384);
-  I2CDeviceManageHandle = osThreadCreate(osThread(I2CDeviceManage), (void *) &xI2Cpass);
+  osThreadDef(I2CDeviceManage, vI2C1DeviceHAL, osPriorityNormal, 0, 384);
+  I2CDeviceManageHandle = osThreadCreate(osThread(I2CDeviceManage), (void *) &xI2C1pass);
 
   /* definition and creation of ADCDeviceManage */
-  osThreadDef(ADCDeviceManage, vADCDeviceHAL, osPriorityNormal, 0, 384);
-  ADCDeviceManageHandle = osThreadCreate(osThread(ADCDeviceManage), (void *) &xADCpass);
+  osThreadDef(ADCDeviceManage, vADC1DeviceHAL, osPriorityNormal, 0, 384);
+  ADCDeviceManageHandle = osThreadCreate(osThread(ADCDeviceManage), (void *) &xADC1pass);
 
   /* definition and creation of FANMotorManage */
   osThreadDef(FANMotorManage, vFANMotorHAL, osPriorityAboveNormal, 0, 128);
@@ -407,7 +430,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -417,7 +440,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_VREFINT;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_24CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -429,6 +452,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
   sConfig.Rank = ADC_REGULAR_RANK_2;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -663,7 +687,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 3999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
+  htim6.Init.Period = 19;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -930,7 +954,23 @@ float miTaskDuration(uint8_t curTask) {
   * @retval: float value of task period in 'milliseconds
   */
 float miTaskPeriod(uint8_t curTask) {
-    return (((float) TimeSheet[curTask].TaskPrid / TimeDomainChng ));
+    return (  (  (float) TimeSheet[curTask].TaskPrid / TimeDomainChng )  );
+}
+
+/**
+  * @brief:  Return a concatenated word (32bit) containing the Task Period and Task Duration
+  *          in 'counts'
+  * @param:  Integer entry to select the correct time entry within the '_taskTime' array (local to
+  *          this code)
+  * @retval: float value of task period in 'milliseconds
+  */
+uint32_t miTaskData(uint8_t curTask) {
+    uint32_t tempvariable = 0;      // 32bit Variable to temporary store Task period data
+
+    tempvariable  = ( (uint16_t) TimeSheet[curTask].TaskDurt ) << 16;
+    tempvariable |= ( (uint16_t) TimeSheet[curTask].TaskPrid );
+
+    return (tempvariable);  // Return 32bit variable
 }
 
 /**
