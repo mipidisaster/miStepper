@@ -83,9 +83,21 @@ struct HALDevComFlt {
   *     TIM6 Prescaler          = 3999      = 80MHz / (3999 + 1)    = 20kHz       50us
   *         Counter Period      = 3999      = 20kHz / (  19 + 1)    = 1 kHz        1ms
   *         ADC1_NumSeq         = 5         = 1 kHz / 5             = 200Hz        5ms
-  ***********************************************************************************************/
+  ************************************************************************************************/
 
 #define FAN___HAL_Time       100 //ms   -- Iteration rate for the FAN HAL task
+/** READ ME BEFORE CHANGING 'FAN___HAL_Time'
+  *
+  * Currently the TIMER linked to the STEPPER (TIM1) is configured to give a resolution of 1us
+  * (Prescaler = 79 -> 1MHz). With the size of hardware register limited to 16bits (65535), this
+  * gives the slowest STEP pulse train of ~65ms (15Hz).
+  * So the FAN HAL task cannot go any faster than this, if slowest speeds are expected.
+  * Therefore the task, is limited to allow a minimum speed of HALF the iteration speed (software
+  * limited at compilation time).
+  *
+  * With the current iteration rate of 100ms, this gives the slowest STEP pulse train of 50ms
+  * (20Hz).
+  ************************************************************************************************/
 #define STP___HAL_Time       100 //ms   -- Iteration rate for the Stepper HAL task
 
 
