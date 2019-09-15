@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        adc_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V1.2
+ * @date        07 Sept 2019
  * @brief       Source file for ADC input task handler
  **************************************************************************************************
   @ attention
@@ -45,6 +45,7 @@ void ADC1_FANMotorVoltage(ADCDMARecord *Record, float *FanVlt, float *IntVRef);
 void ADC1_FANMotorCurrent(ADCDMARecord *Record, float *FanCur, float *IntVRef);
 void ADC1_STPMotorVoltage(ADCDMARecord *Record, float *StpVlt, float *IntVRef);
 void ADC1_STPMotorCurrent(ADCDMARecord *Record, float *StpCur, float *IntVRef);
+void ADC1_AverageParameter(float *param);
 // Prototype(s) for conversion of the ADC data to usable parameters
 
 /**
@@ -167,6 +168,7 @@ void vADC1DeviceHAL(void const * pvParameters) {
             {   // Otherwise data is good, and this is not the first pass
                 ADC1_InternalVoltage(&TempRec,  &TempFloatArray[VRefLoc][1]);
                     // Convert ADC data to get the Voltage Reference
+
                 ADC1_InternalTemperature(&TempRec, &TempFloatArray[ITmpLoc][1],
                                                    &TempFloatArray[VRefLoc][1]);
                     // Calculate the internal temperature reading
@@ -184,9 +186,11 @@ void vADC1DeviceHAL(void const * pvParameters) {
                     // Calculate the FAN Motor Voltage and Current
 
                 for (calibration = 0; calibration != ADC1_ConvPSeq; calibration++) {
+                    ADC1_AverageParameter(&TempFloatArray[calibration][0]); // Calculate Average
+
                     // Loop through all output parameters
-                    lcParams[calibration].data  = TempFloatArray[calibration][1];
-                        // Link '_HALParam' .data value to calculated value
+                    lcParams[calibration].data  = TempFloatArray[calibration][0];
+                        // Link '_HALParam' .data value to calculated average value
                     lcParams[calibration].flt   = _HALParam::NoFault;
                         // Indicate data is fault free
                 }
@@ -419,4 +423,23 @@ void ADC1_STPMotorCurrent(ADCDMARecord *Record, float *StpCur, float *IntVRef) {
         StpCur[i] *= (  1  / (STP_CS30 * STP_Rsense)  );
         // Convert the ADC entry to Stepper Current
     }
+}
+
+/**
+  * @brief:  Calculates the average of the parameter array, and puts output into first entry.
+  *          Starts the averaging from the second entry.
+  * @retval: None (void output)
+  */
+void ADC1_AverageParameter(float *param) {
+    uint8_t i = 0;          // Variable to loop through number of sequences run
+
+    param[0] = param[1];    // Initialise the  average output to the first ready parameter
+                            // (contained within the second array point)
+
+    for (i = 1; i != ADC1_NumSeq; i++) {    // Loop through copies of data within record
+        param[0] += param[i + 1];           // Add the next parameter to accumulator
+    }
+
+    param[0] = param[0] / ((float) ADC1_NumSeq);    // Divide accumulation by number of parameters
+                                                    // so as to get the average
 }
