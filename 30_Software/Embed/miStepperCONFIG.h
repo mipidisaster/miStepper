@@ -1,7 +1,7 @@
 /**************************************************************************************************
  * @file        miStepperCONFIG.h
  * @author      Thomas
- * @version     V0.2
+ * @version     V0.3
  * @date        25 Jun 2019
  * @brief       Configuration parameters for miStepper functions
  **************************************************************************************************
@@ -45,21 +45,21 @@ struct HALDevComFlt {
  * Hardware Abstraction Layer, buffer sizes:
  *---------------------------------------------------------*/
 //## SPI1 Device HAL
-#define SPI1_FormBuffer     16          // Queue size of SPI class forms (SPIPeriph::Form)
+#define SPI1_FormBuffer     16          // Queue size of SPI class forms    (SPIPeriph::Form)
 #define SPI1_CommBuff       64          // Define buffer size for the Transmit and Receive for SPI
                                         // communication
-#define SPI1_AS5048AForm    16          // Queue size for AS5048A forms (16bits)
+#define SPI1_AS5048AForm    16          // Queue size for AS5048A forms     (16bits)
 #define SPI1_FaultCount     6           // Maximum count of no data, before fault action taken
 
 //## I2C1 Device HAL
-#define I2C1_FormBuffer     16          // Queue size of I2C class forms (I2CPeriph::Form)
+#define I2C1_FormBuffer     16          // Queue size of I2C class forms    (I2CPeriph::Form)
 #define I2C1_CommBuff       64          // Define buffer size for the Transmit and Receive for I2C
                                         // communication
-#define I2C1_AD7415Form     16          // Queue size for AD7415 forms (AD741x::Form)
+#define I2C1_AD7415Form     16          // Queue size for AD7415 forms      (AD741x::Form)
 #define I2C1_FaultCount     6           // Maximum count of no data, before fault action taken
 
 //## ADC1 Device HAL
-#define ADC1_FormBuffer     4           // Queue size for ADC data forms (ADCDMARecord)
+#define ADC1_FormBuffer     4           // Queue size for ADC data forms    (ADCDMARecord)
 #define ADC1_ConvPSeq       6           // Define the number of conversions per sequence
 #define ADC1_NumSeq         5           // Define the number of ADC runs to be contained within
                                         // single DMA record
