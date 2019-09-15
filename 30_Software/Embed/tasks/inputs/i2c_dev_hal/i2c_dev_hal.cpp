@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        i2c_dev_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        15 Sept 2019
  * @brief       Source file for I2C Device task handler
  **************************************************************************************************
   @ attention
@@ -24,8 +24,7 @@ static I2CPeriph    *I2C1_Handle;       // Pointer to the I2C1 class handle, for
  * Define any local functions
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrBuff,
-                                                         GenBuffer<uint8_t> *rdBuff,
+void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, uint8_t *wrBuff, uint8_t *rdBuff,
                         HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> *CommState);
 // Prototype for AD7415_1 Packet setup and management.
 
@@ -45,10 +44,6 @@ void vI2C1DeviceHAL(void const * pvParameters) {
     I2CPeriph::Form     I2CForm[I2C1_FormBuffer]        = { 0 };    // I2C1 Form initialised
     uint8_t             I2CCommBuff[2][I2C1_CommBuff]   = { 0 };    // I2C Communication array
 
-    GenBuffer<uint8_t>  I2CWriteBuff(&I2CCommBuff[I2CWt_Arry][0], I2C1_CommBuff);
-        // Create GenBuffer linked to generic write transmit array. This will be used by all
-        // I2C attached device write operations.
-
     // Create I2C1 class
     // =================
     I2CPeriph   I2C1Dev(pxParameters.config.i2c1_handle, &I2CForm[0], I2C1_FormBuffer);
@@ -61,8 +56,6 @@ void vI2C1DeviceHAL(void const * pvParameters) {
                       AD741x::AddrBit::GND,             // Indicate that the Address pin is GND
                       &AD7415Form[0],                   // Link to form buffer
                       I2C1_AD7415Form);                 // Define size of buffer
-
-    GenBuffer<uint8_t>  AD7415ReadBuff(&I2CCommBuff[I2C_AD7415_G][0], I2C1_CommBuff);
 
     // Create local version of linked signals (prefix with "lc")
     // #=======================================================#
@@ -100,8 +93,8 @@ void vI2C1DeviceHAL(void const * pvParameters) {
         // Check the status of the AD7415_1 communication
         AD74151_IntrManage(  &I2C1Dev,
                              &AD7415Dev,
-                             &I2CWriteBuff,
-                             &AD7415ReadBuff,
+                             &I2CCommBuff[I2CWt_Arry][0],
+                             &I2CCommBuff[I2C_AD7415_G][0],
                              &lcAD74151CommState
                           );
         if ((lcAD74151CommState.DevFlt  != AD741x::DevFlt::None) || (FirstPass == 1))
@@ -163,16 +156,25 @@ void I2C1_ER_IRQHandler(void) { I2C1_Handle->IRQErrorHandle(); }
   * @param:  GenBuffer pointer to the AD741x specific read buffer
   * @retval: None (void output)
   */
-static void AD74151_PacketSetup(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrBuff,
-                                                                 GenBuffer<uint8_t> *rdBuff)
+static void AD74151_PacketSetup(I2CPeriph *hi2c, AD741x *device, uint8_t *wrBuff, uint8_t *rdBuff)
 {
-    device->intConfigWrite(hi2c,                        // Construct a write request to AD7415
-                           AD741x::PwrState::StandBy,   // device, putting it into 'Standby' mode
-                           AD741x::FiltState::Enabled,  // Filter is enabled
-                           AD741x::OneShot::TrigConv,   // and trigger a conversion request
+    // Clear communication count fault flags
+    device->wtcmpTarget     = 0;            // Clear the communication write target count
+    device->rdcmpTarget     = 0;            // Clear the communication  read target count
+
+    device->wtcmpFlag       = 0;            // Clear the communication write flag (actual
+                                            // count)
+    device->rdcmpFlag       = 0;            // Clear the communication  read flag (actual
+                                            // count)
+
+    device->intConfigWrite(hi2c,                            // Construct a write request to AD7415
+                           AD741x::PwrState::StandBy,       // device, putting it into 'Standby'
+                                                            // mode
+                           AD741x::FiltState::Enabled,      // Filter is enabled
+                           AD741x::OneShot::TrigConv,       // and trigger a conversion request
                            // (in 'Standby' conversion will only occur upon request)
-                           wrBuff);                     // Provide pointer to array/buffer to
-                                                        // request data from
+                           wrBuff);   // Provide pointer to array/buffer to
+                                                            // request data from
 
     device->intConfigRead(hi2c, rdBuff, wrBuff);        // Read back the status of AD7415
                                                         // configuration
@@ -190,8 +192,7 @@ static void AD74151_PacketSetup(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8
   *          fault type, and I2C Peripheral fault type
   * @retval: None (void output)
   */
-void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrBuff,
-                                                         GenBuffer<uint8_t> *rdBuff,
+void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, uint8_t *wrBuff, uint8_t *rdBuff,
                         HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> *CommState)
 {
     /* AD7415_1 I2C communication interrupt management steps:
@@ -229,17 +230,8 @@ void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrB
                                                             // been written/read then
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            device->intCheckCommStatus(rdBuff, device->rdcmpTarget);
+            device->intCheckCommStatus(&rdBuff[0], device->rdcmpTarget);
                 // Read all available from selected AD741x device
-
-            // Clear communication count fault flags
-            device->wtcmpTarget     = 0;            // Clear the communication write target count
-            device->rdcmpTarget     = 0;            // Clear the communication  read target count
-
-            device->wtcmpFlag       = 0;            // Clear the communication write flag (actual
-                                                    // count)
-            device->rdcmpFlag       = 0;            // Clear the communication  read flag (actual
-                                                    // count)
 
             // Set device communication state to None for I2C communication fault, and device
             // fault to be equal to output of AD741x class
@@ -252,8 +244,8 @@ void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrB
 
             CommState->IdleCount    = 0;                // Clear communication "blackout" count
 
-            AD74151_PacketSetup(hi2c, device, wrBuff, rdBuff);  // Setup a new set of packets to
-                                                                // transmit.
+            AD74151_PacketSetup(hi2c, device, &wrBuff[0], &rdBuff[0]);
+            // Setup a new set of packets to transmit.
         }
         else {  // If the number of bytes have not been written/read yet, then...
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -282,8 +274,8 @@ void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, GenBuffer<uint8_t> *wrB
         device->I2CRFlt   = I2CPeriph::DevFlt::None;        // Clear communication faults
         device->I2CWFlt   = I2CPeriph::DevFlt::None;        // Clear communication faults
 
-        AD74151_PacketSetup(hi2c, device, wrBuff, rdBuff);      // Setup a new set of packets to
-                                                                // transmit.
+        AD74151_PacketSetup(hi2c, device, &wrBuff[0], &rdBuff[0]);
+        // Setup a new set of packets to transmit.
         // This is to allow for any temporary hardware fault to be cleared, and communication to
         // be re-established
     }

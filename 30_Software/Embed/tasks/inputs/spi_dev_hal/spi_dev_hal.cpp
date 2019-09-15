@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        spi_dev_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        15 Sept 2019
  * @brief       Source file for SPI Device task handler
  **************************************************************************************************
   @ attention
@@ -26,7 +26,7 @@ static SPIPeriph    *SPI1_Handle;       // Pointer to the SPI1 class handle, for
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, GPIO *CS,
-                        GenBuffer<uint8_t> *Buff,
+                        uint8_t *wtBuff, uint8_t *rdBuff,
                         HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> *CommState);
 // Prototype for AS5048A Packet setup and management.
 
@@ -45,12 +45,6 @@ void vSPI1DeviceHAL(void const * pvParameters) {
     // Create locally used variables within task:
     SPIPeriph::Form     SPIForm[SPI1_FormBuffer]        = { 0 };    // SPI1 Form initialised
     uint8_t             SPICommBuff[2][SPI1_CommBuff]   = { 0 };    // SPI Communication array
-
-    GenBuffer<uint8_t>  SPIGenBuff[2] = {                           // Link SPI Comm array to
-                                                                    // GenBuffer
-                {&SPICommBuff[SPIWt_Arry][0], SPI1_CommBuff},        // 1st  = Write Buffer
-                {&SPICommBuff[SPIRd_Arry][0], SPI1_CommBuff}         // 2nd  = Read  Buffer
-    };
 
     // Create SPI1 class
     // =================
@@ -108,7 +102,7 @@ void vSPI1DeviceHAL(void const * pvParameters) {
                              &AS5048ADev,
                              &AS5Daisy,
                              &AS5048CS,
-                             SPIGenBuff,
+                             &SPICommBuff[SPIWt_Arry][0], &SPICommBuff[SPIRd_Arry][0],
                              &lcAS5048ACommState
                           );
         if ((lcAS5048ACommState.DevFlt  != AS5x4x::DevFlt::None) || (FirstPass == 1))
@@ -162,12 +156,12 @@ void SPI1_IRQHandler(void) { SPI1_Handle->IRQHandle(); };
   * @param:  AS5x4x device pointer
   * @param:  Daisy chain structure pointer
   * @param:  Chip Select GPIO pointer
-  * @param:  GenBuffer pointer where data is read from and written to, expects this is an array
-  *          with 2 entries
+  * @param:  Array pointer to where data is read from and written to, expects this is an array
+  *          with 'SPI1_CommBuff' columns
   * @retval: None (void output)
   */
 static void AS5048_PacketSetup(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, GPIO *CS,
-                               GenBuffer<uint8_t> *Buff)
+                               uint8_t *wtBuff, uint8_t *rdBuff)
 {
     device->constructCEF();         // Construct the Clear Error Flags request
     device->constructAGC();         // Construct the Automatic Gain Control request
@@ -175,12 +169,16 @@ static void AS5048_PacketSetup(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *d
     device->constructAng();         // Construct the Angular position
     device->constructNOP();         // Construct NOP
 
+    // Clear communication count fault flags
+    daisy->Trgt     = 0;                    // Clear the communication target count
+    daisy->Cmplt    = 0;                    // Clear the communication actual count
+
     AS5x4x::intSingleTransmit(hspi,                 // Add data requests to target SPI peripheral
                               CS,                   // Chip Select to use
                               daisy,                // Daisy Chain setup
-                              &Buff[SPIRd_Arry],    // Pointer to where read back data is to be
+                              rdBuff,               // Pointer to where read back data is to be
                                                     // stored
-                              &Buff[SPIWt_Arry]);   // Pointer to where data to be written to
+                              wtBuff);              // Pointer to where data to be written to
                                                     // AS5048 is to be taken from.
 }
 
@@ -191,14 +189,14 @@ static void AS5048_PacketSetup(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *d
   * @param:  AS5x4x device pointer
   * @param:  Daisy chain structure pointer
   * @param:  Chip Select GPIO pointer
-  * @param:  GenBuffer pointer where data is read from and written to, expects this is an array
-  *          with 2 entries
+  * @param:  Array pointer to where data is read from and written to, expects this is an array
+  *          with 'SPI1_CommBuff' columns
   * @param:  Pointer to the HALDevComFlt specific for the AS5x4x device, so includes the AS5x4x
   *          fault type, and SPI Peripheral fault type
   * @retval: None (void output)
   */
 void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, GPIO *CS,
-                        GenBuffer<uint8_t> *Buff,
+                        uint8_t *wtBuff, uint8_t *rdBuff,
                         HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> *CommState)
 {
     /* AS5048 SPI communication interrupt management steps:
@@ -236,17 +234,13 @@ void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, G
 
             AS5x4x::SPIReadChain(daisy->Devices,        // Read all available data from every
                                  daisy->numDevices,     // AS5x4x supported device within daisy
-                                 &Buff[SPIRd_Arry],     // chain.
+                                 &rdBuff[0],            // chain.
                                  daisy->Trgt);
             //####
             // Currently only supports use of 1 connected AS5x4x device.
             //####
             AS5x4x::readDaisyPackets(daisy);            // Deconstruct all data, and integrate
                                                         // into each AS5x4x class instance.
-
-            // Clear communication count fault flags
-            daisy->Trgt     = 0;                    // Clear the communication target count
-            daisy->Cmplt    = 0;                    // Clear the communication actual count
 
             // Set device communication state to None for SPI communication fault, and device
             // fault to be equal to output of AS5x4x class
@@ -259,8 +253,8 @@ void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, G
 
             CommState->IdleCount    = 0;                // Clear communication "blackout" count
 
-            AS5048_PacketSetup(hspi, device, daisy, CS, Buff);  // Setup a new set of packets to
-                                                                // transmit.
+            AS5048_PacketSetup(hspi, device, daisy, CS, wtBuff, rdBuff);
+            // Setup a new set of packets to transmit.
         }
         else {  // If the number of bytes have not been transmitted yet, then...
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -284,8 +278,8 @@ void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, G
 
         daisy->Flt          = SPIPeriph::DevFlt::None;          // Clear the daisy chain
                                                                 // communication fault
-        AS5048_PacketSetup(hspi, device, daisy, CS, Buff);      // Setup a new set of packets to
-                                                                // transmit.
+        AS5048_PacketSetup(hspi, device, daisy, CS, wtBuff, rdBuff);
+        // Setup a new set of packets to transmit.
         // This is to allow for any temporary hardware fault to be cleared, and communication to
         // be re-established
     }
