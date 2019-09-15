@@ -243,7 +243,7 @@ void vSTPMotorHAL(void const * pvParameters) {
             StpStatAct  |= (1 << STP_DirectionFl);  // Set bit in register for Direction
         }
 
-        StpStatAct      &= (STP_MaxGear << STP_GearStart);  // Clear position(s) for gearing
+        StpStatAct      &= ~(STP_MaxGear << STP_GearStart); // Clear position(s) for gearing
         StpStatAct      |= (StpCurGer   << STP_GearStart);  // Now set with current gearing
 
         // Link internal signals to output pointers:
