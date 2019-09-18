@@ -18,7 +18,11 @@
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-uint8_t             USART1Arr[2][USART1_CommBuff];      // Array used to contain USART comm data
+UARTPeriph::Form    ReadBuffer[2]  = { 0 };
+UARTPeriph::Form    WrteBuffer[64] = { 0 };
+
+uint8_t             USART1Arr[2][USART1_CommBuff] = { 0 };  // Array used to contain USART comm
+                                                            // data
         // Defined outside of the RTOS function so isn't added to the stack
 static UARTPeriph   *USART1_Handle;     // Pointer to the USART1 class handle, for interrupt use
 
@@ -46,8 +50,8 @@ _miStpRd    RdState = { ._state     = _miStpRdStatus::Idle,
  * Define any local functions
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void Transmit16bit(UARTPeriph *huart, uint16_t data);
-void Transmit32bit(UARTPeriph *huart, uint32_t data);
+void Transmit16bit(GenBuffer<uint8_t> *buffer, uint16_t data);
+void Transmit32bit(GenBuffer<uint8_t> *buffer, uint32_t data);
 
 
 /**
@@ -63,10 +67,7 @@ void vUSART1DeviceHAL(void const * pvParameters) {
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
     // Create locally used variables within task:
     uint32_t i = 0;                                 // Define a variable used to count loops
-    for (i = 0; i != USART1_CommBuff; i++) {        // Loop through all data within "USART1Arr"
-        USART1Arr[0][i] = 0;                        //
-        USART1Arr[1][i] = 0;                        // Set all data point to "0"
-    }
+
     GenBuffer<uint8_t>  USARTGenBuff[2] = {                         // Link USRAT Comm array to
                                                                     // GenBuffer
                 {&USART1Arr[0][0], USART1_CommBuff},                // 1st = Write Buffer
@@ -75,7 +76,8 @@ void vUSART1DeviceHAL(void const * pvParameters) {
 
     // Create USART1 class
     // ===================
-    UARTPeriph  USART1Dev(pxParameters.config.usart1_handle, &USARTGenBuff[1], &USARTGenBuff[0]);
+    UARTPeriph  USART1Dev(pxParameters.config.usart1_handle, &WrteBuffer[0], 64,
+                                                             &ReadBuffer[0], 2);
     USART1_Handle = &USART1Dev;     // Link USART1Dev class to global pointer (for ISR)
 
     // Create local version of linked signals (prefix with "lc")
@@ -119,8 +121,11 @@ void vUSART1DeviceHAL(void const * pvParameters) {
     uint8_t     TransmitMode = 0;   // Mode for transmitting data
     uint8_t     readback  = 0;      // Variable to store read data from USART
 
-    // Enable USART interrupts:
-    USART1Dev.ReceiveIT(UART_Enable);                   // Enable Receive interrupts
+    volatile UARTPeriph::DevFlt ReadBackFault = UARTPeriph::DevFlt::None;
+    volatile uint16_t countReadBack = 0;
+
+    volatile UARTPeriph::DevFlt WrteBackFault = UARTPeriph::DevFlt::None;
+    volatile uint16_t countWrteBack = 0;
 
     /* Following contains the main aspects of this task-------------------------*/
     /****************************************************************************/
@@ -155,7 +160,9 @@ void vUSART1DeviceHAL(void const * pvParameters) {
         lcStpste    = *(pxParameters.input.StpStatAct);
         lcStpcPs    = *(pxParameters.input.StpcalPost);
 
-        while (USART1Dev.SingleRead_IT(&readback)  != GenBuffer_Empty) {
+        USART1Dev.Read_GenBufferLock(&USARTGenBuff[1], &ReadBackFault, &countReadBack);
+
+        while (USARTGenBuff[1].OutputRead(&readback)  != GenBuffer_Empty) {
             if (RdState._state == _miStpRdStatus::Idle) {
                 if ( ( RdState.rdPointer  == 0 ) && ( readback == 0xFF ) ) {
                     RdState.rdPointer++;
@@ -236,61 +243,68 @@ void vUSART1DeviceHAL(void const * pvParameters) {
         }
 
         if ( (TransmitMode & (1 << TransmitDataBit)) != 0) {
+            USARTGenBuff[0].QFlush();   // Clear the GenBuffer (return points to start)
+
             // Transmit the USART package(s):
             // Layout of data in alignment with "PacketTransmission.xlsx" Sheet
             //          "USARTPacket_miStpOut"                               Version 1.1
             // Initially transmit new package identifier:
-            USART1Dev.SingleTransmit_IT(    0xFF                                );
-            USART1Dev.SingleTransmit_IT(    0x5A                                );
-            Transmit16bit(&USART1Dev,       PckCount                            );
+            USARTGenBuff[0].InputWrite(     0xFF                                );
+            USARTGenBuff[0].InputWrite(     0x5A                                );
+            Transmit16bit(&USARTGenBuff[0], PckCount                            );
 
             /* SPI1 packets:                                                    */
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcAngPos.data        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcSPI1Flt                 );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.ComFlt        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.DevFlt        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAS5048Flt.IdleCount     );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcAngPos.data        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcSPI1Flt                 );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAS5048Flt.ComFlt        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAS5048Flt.DevFlt        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAS5048Flt.IdleCount     );
 
-            Transmit32bit(&USART1Dev,       miTaskData(miSPI1__Task)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miSPI1__Task)            );
 
             /* I2C1 packets:                                                    */
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcExtTmp.data        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcI2C1Flt                 );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.ComFlt        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.DevFlt        );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcAD7415Flt.IdleCount     );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcExtTmp.data        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcI2C1Flt                 );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAD7415Flt.ComFlt        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAD7415Flt.DevFlt        );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcAD7415Flt.IdleCount     );
 
-            Transmit32bit(&USART1Dev,       miTaskData(miI2C1__Task)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miI2C1__Task)            );
 
             /* ADC1 packets:                                                    */
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcIntVrf.data        );
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcIntTmp.data        );
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanVlt.data        );
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanCur.data        );
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcStpVlt.data        );
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcStpCur.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcIntVrf.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcIntTmp.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcFanVlt.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcFanCur.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcStpVlt.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcStpCur.data        );
 
-            USART1Dev.SingleTransmit_IT(    0x00                                );
-            USART1Dev.SingleTransmit_IT(    0x00                                );
-            USART1Dev.SingleTransmit_IT(    0x00                                );
-            USART1Dev.SingleTransmit_IT(    (uint8_t) lcIntVrf.flt              );
+            USARTGenBuff[0].InputWrite(     0x00                                );
+            USARTGenBuff[0].InputWrite(     0x00                                );
+            USARTGenBuff[0].InputWrite(     0x00                                );
+            USARTGenBuff[0].InputWrite(     (uint8_t) lcIntVrf.flt              );
 
-            Transmit32bit(&USART1Dev,       miTaskData(miADC1__Task)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miADC1__Task)            );
 
             /* FAN packets:                                                     */
-            Transmit32bit(&USART1Dev,       *(uint32_t *) &lcFanAct.data        );
+            Transmit32bit(&USARTGenBuff[0], *(uint32_t *) &lcFanAct.data        );
 
-            Transmit32bit(&USART1Dev,       miTaskData(miFan___Task)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miFan___Task)            );
 
             /* STEPPER packets:                                                 */
-            Transmit16bit(&USART1Dev,       lcStpfrq                            );
-            Transmit16bit(&USART1Dev,       lcStpste                            );
-            Transmit32bit(&USART1Dev,       lcStpcPs                            );
+            Transmit16bit(&USARTGenBuff[0], lcStpfrq                            );
+            Transmit16bit(&USARTGenBuff[0], lcStpste                            );
+            Transmit32bit(&USARTGenBuff[0], lcStpcPs                            );
 
-            Transmit32bit(&USART1Dev,       miTaskData(miSteperTask)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miSteperTask)            );
 
             /* USART1 packets:                                                  */
-            Transmit32bit(&USART1Dev,       miTaskData(miUSART1Task)            );
+            Transmit32bit(&USARTGenBuff[0], miTaskData(miUSART1Task)            );
+
+            WrteBackFault = UARTPeriph::DevFlt::None;
+            countWrteBack = 0;
+            USART1Dev.intWrtePacket(USARTGenBuff[0].pa, USARTGenBuff[0].input_pointer,
+                                    &WrteBackFault, &countWrteBack);
 
             PckCount++;     // Increase packet counter
 
@@ -331,22 +345,18 @@ void USART1_IRQHandler(void) { USART1_Handle->IRQHandle(); };
  *************************************************************************************************/
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Transmit16bit(UARTPeriph *huart, uint16_t data) {
+void Transmit16bit(GenBuffer<uint8_t> *buffer, uint16_t data) {
     uint8_t tmparray[2] = {  0  };
 
     DataManip::_16bit_2_2x8bit(data,  &tmparray[0]);
 
-    huart->SingleTransmit_IT( tmparray[0] );
-    huart->SingleTransmit_IT( tmparray[1] );
+    buffer->QuickWrite(&tmparray[0], 2);
 }
 
-void Transmit32bit(UARTPeriph *huart, uint32_t data) {
+void Transmit32bit(GenBuffer<uint8_t> *buffer, uint32_t data) {
     uint8_t tmparray[4] = { 0 };
 
     DataManip::_32bit_2_4x8bit(data,  &tmparray[0]);
 
-    huart->SingleTransmit_IT( tmparray[0] );
-    huart->SingleTransmit_IT( tmparray[1] );
-    huart->SingleTransmit_IT( tmparray[2] );
-    huart->SingleTransmit_IT( tmparray[3] );
+    buffer->QuickWrite(&tmparray[0], 4);
 }
