@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        i2c_dev_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for I2C Device task handler
  **************************************************************************************************
   @ attention
@@ -25,7 +25,6 @@
  *  current value of external temperature will be an output of task.
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (I2C global parameter)
  *      Input signals               (NONE)
  *      Output signals              (External Temperature, and communication fault status)
  *
@@ -63,11 +62,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        I2C_HandleTypeDef                                   *i2c1_handle;
-
-    } config;
-
     struct {
         I2CPeriph::DevFlt                                   *I2C1CommFlt;
         HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     *AD74151Flt;

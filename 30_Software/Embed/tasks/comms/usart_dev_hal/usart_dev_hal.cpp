@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        usart_dev_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Source file for USART communication task handler
  **************************************************************************************************
   @ attention
@@ -15,6 +15,15 @@
 #include EMBD_USARTTask
 
 /**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern UART_HandleTypeDef huart1;           // Defined within 'main.cpp'
+
+extern DMA_HandleTypeDef hdma_usart1_rx;    // Defined within 'main.cpp'
+extern DMA_HandleTypeDef hdma_usart1_tx;    // Defined within 'main.cpp'
+
+/**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
@@ -24,7 +33,7 @@ UARTPeriph::Form    WrteBuffer[64] = { 0 };
 uint8_t             USART1Arr[2][USART1_CommBuff] = { 0 };  // Array used to contain USART comm
                                                             // data
         // Defined outside of the RTOS function so isn't added to the stack
-static UARTPeriph   *USART1_Handle;     // Pointer to the USART1 class handle, for interrupt use
+static UARTDMAPeriph    *USART1_Handle; // Pointer to the USART1 class handle, for interrupt use
 
 typedef struct _miStpRdStatus{
     enum  RdStatus  {   Idle        = 0,
@@ -76,8 +85,9 @@ void vUSART1DeviceHAL(void const * pvParameters) {
 
     // Create USART1 class
     // ===================
-    UARTPeriph  USART1Dev(pxParameters.config.usart1_handle, &WrteBuffer[0], 64,
-                                                             &ReadBuffer[0], 2);
+    UARTDMAPeriph  USART1Dev(&huart1, &WrteBuffer[0], 64,
+                                      &ReadBuffer[0],  2,
+                                      &hdma_usart1_rx,  &hdma_usart1_tx);
     USART1_Handle = &USART1Dev;     // Link USART1Dev class to global pointer (for ISR)
 
     // Create local version of linked signals (prefix with "lc")
@@ -336,6 +346,20 @@ void vUSART1DeviceHAL(void const * pvParameters) {
   * @retval: None (void output)
   */
 void USART1_IRQHandler(void) { USART1_Handle->IRQHandle(); };
+
+/**
+  * @brief:  DMA1 Channel 4 USART1 (Transmit) Interrupt Service Routine handler.
+  * @param:  None (void input)
+  * @retval: None (void output)
+  */
+void DMA1_Channel4_IRQHandler(void) { USART1_Handle->IRQDMATxHandle(); };
+
+/**
+  * @brief:  DMA1 Channel 5 USART1 (Receive) Interrupt Service Routine handler.
+  * @param:  None (void input)
+  * @retval: None (void output)
+  */
+void DMA1_Channel5_IRQHandler(void) { USART1_Handle->IRQDMARxHandle(); };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************

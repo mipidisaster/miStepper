@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        stepper_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for Stepper Motor task handler
  **************************************************************************************************
   @ attention
@@ -24,7 +24,6 @@
  * provided as output of task.
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (DMA, and TIM global parameters)
  *      Input signals               (Stepper requests)
  *      Output signals              (Actual Stepper Demand)
  *
@@ -62,12 +61,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        TIM_HandleTypeDef                                   *stepper_timer;
-        DMA_HandleTypeDef                                   *stepper_dma;
-
-    } config;
-
     struct {
         uint8_t                                             *StpEnable;
         uint8_t                                             *StpGear;

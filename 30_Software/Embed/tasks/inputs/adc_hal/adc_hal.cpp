@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        adc_hal.cpp
  * @author      Thomas
- * @version     V1.2
- * @date        07 Sept 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Source file for ADC input task handler
  **************************************************************************************************
   @ attention
@@ -13,6 +13,15 @@
 
 #include "EmbedIndex.h"
 #include EMBD_ADCTask
+
+/**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern ADC_HandleTypeDef hadc1;             // Defined within'main.cpp'
+extern DMA_HandleTypeDef hdma_adc1;         // Defined within'main.cpp'
+
+extern TIM_HandleTypeDef htim6;             // Defined within'main.cpp'
 
 /**************************************************************************************************
  * Define any local global signals
@@ -65,8 +74,8 @@ void vADC1DeviceHAL(void const * pvParameters) {
         // Link ADC Form to GenBuffer
 
     ADC1Buff_Handle = &ADC1GenBuff;                     // Link ADCGenBuff to global pointer
-    ADC1_Handle     = pxParameters.config.adc1_handle;  // Link ADC input to global pointer
-    ADC1DMA_Handle  = pxParameters.config.adc1_dma;     // Link ADC linked DMA to global pointer
+    ADC1_Handle     = &hadc1;  // Link ADC input to global pointer
+    ADC1DMA_Handle  = &hdma_adc1;     // Link ADC linked DMA to global pointer
                                                         // all for ISR
 
     uint32_t calibration = 0;           // Variable for the calibrated return value
@@ -117,9 +126,9 @@ void vADC1DeviceHAL(void const * pvParameters) {
     ADC_Enable(ADC1_Handle);     // Enable the ADC
 
     // Enable Timer for ADC conversions
-    __HAL_TIM_CLEAR_FLAG(pxParameters.config.adc1_timer,    // Ensure that update flag is already
+    __HAL_TIM_CLEAR_FLAG(&htim6,    // Ensure that update flag is already
                          TIM_FLAG_UPDATE);                  // cleared
-    __HAL_TIM_ENABLE(pxParameters.config.adc1_timer);       // Then enable timer
+    __HAL_TIM_ENABLE(&htim6);       // Then enable timer
 
     LL_ADC_REG_StartConversion(ADC1_Handle->Instance);      // Start conversions!
 
@@ -226,6 +235,7 @@ void vADC1DeviceHAL(void const * pvParameters) {
   * @retval: None (void output)
   */
 void ADC1_IRQHandler(void) {
+#warning "Modify this, as currently its not really doing anything - within DMA_START it locks the HAL!"
     // Check to see if the interrupt was due to completed sequence:
     if ( (__HAL_ADC_GET_FLAG(ADC1_Handle, ADC_FLAG_EOS) != 0) &&
          (__HAL_ADC_GET_IT_SOURCE(ADC1_Handle, ADC_IT_EOS) != 0) ) {
@@ -276,12 +286,15 @@ void ADC1_IRQHandler(void) {
 void DMA1_Channel1_IRQHandler(void) {
 
     // Check to see if the interrupt was due to DMA transmit error
-    if ( (__HAL_DMA_GET_TE_FLAG_INDEX(ADC1DMA_Handle) != 0) &&
-         (__HAL_DMA_GET_IT_SOURCE(ADC1DMA_Handle, DMA_IT_TE) != 0) ) {
+    //      See if Interrupt has been enabled - in combination with - Interrupt being set
+    if ( (__HAL_DMA_GET_IT_SOURCE(ADC1DMA_Handle, DMA_IT_TE) != 0) &&
+         (__HAL_DMA_GET_FLAG(ADC1DMA_Handle, __HAL_DMA_GET_TE_FLAG_INDEX(ADC1DMA_Handle)) != 0) ) {
         __HAL_DMA_CLEAR_FLAG(ADC1DMA_Handle, DMA_FLAG_TE1); // Clear the interrupt (Channel 1)
 
         __HAL_DMA_DISABLE(ADC1DMA_Handle);                  // Disable the linked DMA to ADC
         CurADC1Record.Flt        = ADCDMARecord::Fault;     // Set record as faulty
+
+        // Essentially if there is a DMA error fault, then cancel all ADC conversions!
     }
 }
 

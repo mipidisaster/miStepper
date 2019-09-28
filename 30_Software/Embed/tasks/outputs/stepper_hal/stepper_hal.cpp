@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        stepper_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Source file for Stepper Motor task handler
  **************************************************************************************************
   @ attention
@@ -13,6 +13,13 @@
 
 #include "EmbedIndex.h"
 #include EMBD_STPTask
+
+/**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern TIM_HandleTypeDef htim1;             // Defined within 'main.cpp'
+extern DMA_HandleTypeDef hdma_tim1_ch3;     // Defined within 'main.cpp'
 
 /**************************************************************************************************
  * Define any local global signals
@@ -71,7 +78,7 @@ void vSTPMotorHAL(void const * pvParameters) {
      *                      number of STEPs that has been taken
      *********************************************************************************************/
 
-    STPConfig.PulseDMAAddress   = (uint32_t) &pxParameters.config.stepper_timer->Instance->CCR3;
+    STPConfig.PulseDMAAddress  = (uint32_t) &htim1.Instance->CCR3;
                                                                                             //[1]
     STPConfig.EnbTIMDMA        = TIM_DMA_CC3;                                               //[2]
     STPConfig.PulsEGRBit       = TIM_EVENTSOURCE_CC3;                                       //[3]
@@ -81,7 +88,7 @@ void vSTPMotorHAL(void const * pvParameters) {
     STPConfig.CounSRBit        = TIM_FLAG_CC2;                                              //[6]
     STPConfig.CounIntBit       = TIM_IT_CC2;                                                //[7]
 
-    Stepper NEMA(pxParameters.config.stepper_timer, pxParameters.config.stepper_dma,
+    Stepper NEMA(&htim1, &hdma_tim1_ch3,
                 // Generate the output signal for STEP 'pulse'
             ( TIM_CCxN_ENABLE << TIM_CHANNEL_3 ),   // The output channel pin for enabling the
                                                     // output for 'Capture/Compare 3'

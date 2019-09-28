@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        fan_hal.cpp
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Source file for Fan Motor task handler
  **************************************************************************************************
   @ attention
@@ -13,6 +13,12 @@
 
 #include "EmbedIndex.h"
 #include EMBD_FANTask
+
+/**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern TIM_HandleTypeDef htim15;            // Defined within 'main.cpp'
 
 /**************************************************************************************************
  * Define any local global signals
@@ -39,19 +45,19 @@ void vFANMotorHAL(void const * pvParameters) {
 /*---------------------------[     Setup Timer for PWM control    ]---------------------------*/
 
     // Setup and kick-off the PWM on channel 2 of timer 2
-    TIM_CCxChannelCmd(pxParameters.config.fan_timer->Instance,  // Enable TIMER Channel 2
+    TIM_CCxChannelCmd(htim15.Instance,  // Enable TIMER Channel 2
                       TIM_CHANNEL_2,                            // Compare Output Mode
                       TIM_CCx_ENABLE);                          //
 
-    __HAL_TIM_MOE_ENABLE(pxParameters.config.fan_timer);
+    __HAL_TIM_MOE_ENABLE(&htim15);
     // As TIM15 (linked input) contains the break register(s), need to enable full timer
     // functionality
 
-    __HAL_TIM_ENABLE_IT(pxParameters.config.fan_timer,          // Enable TIM15 Update interrupt
+    __HAL_TIM_ENABLE_IT(&htim15,          // Enable TIM15 Update interrupt
                         TIM_IT_UPDATE);                         // used for time schedule logging
         // Note the interrupt handling is done within main.ccp and main.h
 
-    __HAL_TIM_ENABLE(pxParameters.config.fan_timer);            // Start timer!
+    __HAL_TIM_ENABLE(&htim15);            // Start timer!
 
 
 /*---------------------------[      PWM Timer is now running      ]---------------------------*/
@@ -89,7 +95,7 @@ void vFANMotorHAL(void const * pvParameters) {
             lcFanDmd.data   = *(pxParameters.input.FanDmd); // Task reads in the Fan Demand
 
         if (lcFanDmd.data <= 0.00) {        // If Fan demand is 0, i.e. Switch off PWM output
-            __HAL_TIM_SET_COMPARE(pxParameters.config.fan_timer,
+            __HAL_TIM_SET_COMPARE(&htim15,
                                   TIM_CHANNEL_2,
                                   0);
 
@@ -100,7 +106,7 @@ void vFANMotorHAL(void const * pvParameters) {
                 lcFanDmd.data = 100.0;      // Limit to Defined PWM width
 
             tempcalc    = (uint16_t) ((lcFanDmd.data / 100.0 ) * PWMWidth);
-            __HAL_TIM_SET_COMPARE(pxParameters.config.fan_timer,
+            __HAL_TIM_SET_COMPARE(&htim15,
                                   TIM_CHANNEL_2,
                                   tempcalc);
         }

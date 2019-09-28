@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        usart_dev_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for USART communication task handler
  **************************************************************************************************
   @ attention
@@ -24,7 +24,6 @@
  * the characters will enable/disable specific functions (Fan and Stepper).
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (USART global parameter)
  *      Input signals               (Angular position, temperatures, voltages, and currents)
  *      Output signals              (Fan demand, Stepper motor demand(s))
  *
@@ -49,6 +48,7 @@
 #include FilInd_DATMngrHD               // Provide the function set for Data Manipulation
 
 #include FilInd_USART__HD               // Include the USART class handler
+#include FilIndUSARTDMAHD               // Include the USART/DMA class handler
 
 #include FilInd_SPIPe__HD               // Include the SPI class handler
 #include FilInd_AS5x4x_HD               // Include the device AS5x4 handler
@@ -69,11 +69,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        UART_HandleTypeDef                                  *usart1_handle;
-
-    } config;
-
     struct {
         _HALParam                                           *AngPos;
         SPIPeriph::DevFlt                                   *SPI1CommFlt;
@@ -134,6 +129,8 @@ void vUSART1DeviceHAL(void const * pvParameters);   // "main" task for USART han
 
 void USART1_IRQHandler(void);               // This task file also includes the prototype used to
                                             // handle Interrupt Service Calls
+void DMA1_Channel4_IRQHandler(void);        // Interrupt Service Call for DMA1 Channel 4 (Tx)
+void DMA1_Channel5_IRQHandler(void);        // Interrupt Service Call for DMA1 Channel 5 (Rx)
 
 #ifdef __cplusplus
 }

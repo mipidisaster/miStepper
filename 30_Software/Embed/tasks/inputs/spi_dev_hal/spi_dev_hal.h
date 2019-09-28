@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        spi_dev_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for SPI Device task handler
  **************************************************************************************************
   @ attention
@@ -25,7 +25,6 @@
  * current value of angular position will be an output of task
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (SPI global parameter)
  *      Input signals               (NONE)
  *      Output signals              (Angular position, and communication fault status)
  *
@@ -63,11 +62,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        SPI_HandleTypeDef                                   *spi1_handle;
-
-    } config;
-
     struct {
         SPIPeriph::DevFlt                                   *SPI1CommFlt;
         HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     *AS5048AFlt;

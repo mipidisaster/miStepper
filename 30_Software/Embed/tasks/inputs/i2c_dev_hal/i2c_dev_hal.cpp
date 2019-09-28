@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        i2c_dev_hal.cpp
  * @author      Thomas
- * @version     V2.1
- * @date        15 Sept 2019
+ * @version     V2.2
+ * @date        28 Sept 2019
  * @brief       Source file for I2C Device task handler
  **************************************************************************************************
   @ attention
@@ -13,6 +13,12 @@
 
 #include "EmbedIndex.h"
 #include EMBD_I2CTask
+
+/**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern I2C_HandleTypeDef hi2c1;             // Defined within 'main.cpp'
 
 /**************************************************************************************************
  * Define any local global signals
@@ -46,7 +52,7 @@ void vI2C1DeviceHAL(void const * pvParameters) {
 
     // Create I2C1 class
     // =================
-    I2CPeriph   I2C1Dev(pxParameters.config.i2c1_handle, &I2CForm[0], I2C1_FormBuffer);
+    I2CPeriph   I2C1Dev(&hi2c1, &I2CForm[0], I2C1_FormBuffer);
     I2C1_Handle = &I2C1Dev;         // Link I2C1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup I2C Connected Device Classes ]---------------------------*/

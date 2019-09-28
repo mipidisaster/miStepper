@@ -72,6 +72,8 @@ TIM_HandleTypeDef htim15;
 DMA_HandleTypeDef hdma_tim1_ch3;
 
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 osThreadId defaultTaskHandle;
 osThreadId SPIDeviceManageHandle;
@@ -195,8 +197,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /* RTOS Linkage Configuration-----------------------------------------------*/
   // Setup signal linkage for the SPI task
-  xSPI1pass.config.spi1_handle      = &hspi1;
-
   xSPI1pass.output.SPI1CommFlt      = &SPI1CommFlt;
   xSPI1pass.output.AS5048AFlt       = &AS5048AFlt;
   xSPI1pass.output.AngPos           = &AngPos;
@@ -206,8 +206,6 @@ int main(void)
   xUSART1pass.input.AS5048AFlt      = xSPI1pass.output.AS5048AFlt;  // Faults           to USART
 
   // Setup signal linkage for the I2C task
-  xI2C1pass.config.i2c1_handle      = &hi2c1;
-
   xI2C1pass.output.I2C1CommFlt      = &I2C1CommFlt;
   xI2C1pass.output.AD74151Flt       = &AD74151Flt;
   xI2C1pass.output.ExtTmp           = &ExtTmp;
@@ -217,10 +215,6 @@ int main(void)
   xUSART1pass.input.AD74151Flt      = xI2C1pass.output.AD74151Flt;  // Faults           to USART
 
   // Setup signal linkage for the ADC task
-  xADC1pass.config.adc1_handle      = &hadc1;
-  xADC1pass.config.adc1_dma         = &hdma_adc1;
-  xADC1pass.config.adc1_timer       = &htim6;
-
   xADC1pass.output.IntVrf           = &IntVrf;
   xADC1pass.output.IntTmp           = &IntTmp;
 
@@ -240,8 +234,6 @@ int main(void)
   xUSART1pass.input.StpCur          = xADC1pass.output.StpCur;      // STP Current      to USART
 
   // Setup signal linkage for the USART task
-  xUSART1pass.config.usart1_handle  = &huart1;
-
   xUSART1pass.output.FanDmd         = &FanDmd;
 
   xFANpass.input.FanDmd             = xUSART1pass.output.FanDmd;    // Fan Demand       to USART
@@ -257,16 +249,11 @@ int main(void)
   xSTPpass.input.StpFreqDmd         = xUSART1pass.output.StpFreqDmd;
 
   // Setup signal linkage for the FAN task
-  xFANpass.config.fan_timer         = &htim15;
-
   xFANpass.output.FanAct            = &FanAct;
   xUSART1pass.input.FanAct          = xFANpass.output.FanAct;
 
 
   // Setup signal linkage for the STEPPER task
-  xSTPpass.config.stepper_timer     = &htim1;
-  xSTPpass.config.stepper_dma       = &hdma_tim1_ch3;
-
   xSTPpass.output.StpFreqAct        = &StpFreqAct;
   xSTPpass.output.StpStatAct        = &StpStatAct;
   xSTPpass.output.StpcalPost        = &StpcalPost;
@@ -827,6 +814,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
   /* DMA1_Channel7_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);

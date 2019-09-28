@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        spi_dev_hal.cpp
  * @author      Thomas
- * @version     V2.1
- * @date        15 Sept 2019
+ * @version     V2.2
+ * @date        28 Sept 2019
  * @brief       Source file for SPI Device task handler
  **************************************************************************************************
   @ attention
@@ -13,6 +13,12 @@
 
 #include "EmbedIndex.h"
 #include EMBD_SPITask
+
+/**************************************************************************************************
+ * Define any externally consumed global signals
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *************************************************************************************************/
+extern SPI_HandleTypeDef hspi1;             // Defined within 'main.cpp'
 
 /**************************************************************************************************
  * Define any local global signals
@@ -48,7 +54,7 @@ void vSPI1DeviceHAL(void const * pvParameters) {
 
     // Create SPI1 class
     // =================
-    SPIPeriph   SPI1Dev(pxParameters.config.spi1_handle, &SPIForm[0], SPI1_FormBuffer);
+    SPIPeriph   SPI1Dev(&hspi1, &SPIForm[0], SPI1_FormBuffer);
     SPI1_Handle = &SPI1Dev;         // Link SPI1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup SPI Connected Device Classes ]---------------------------*/

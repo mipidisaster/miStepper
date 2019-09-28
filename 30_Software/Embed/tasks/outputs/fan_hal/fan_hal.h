@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        fan_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for Fan Motor task handler
  **************************************************************************************************
   @ attention
@@ -23,7 +23,6 @@
  * saturated, and provided as output of task.
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (PWM Timer global parameter)
  *      Input signals               (Fan Demand)
  *      Output signals              (Actual Fan Demand (saturated output))
  *
@@ -58,11 +57,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        TIM_HandleTypeDef                                   *fan_timer;
-
-    } config;
-
     struct {
         float                                               *FanDmd;
 

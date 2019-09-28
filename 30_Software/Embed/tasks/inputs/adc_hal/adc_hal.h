@@ -1,8 +1,8 @@
 /**************************************************************************************************
  * @file        adc_hal.h
  * @author      Thomas
- * @version     V1.1
- * @date        25 Jun 2019
+ * @version     V2.1
+ * @date        28 Sept 2019
  * @brief       Header file for ADC input task handler
  **************************************************************************************************
   @ attention
@@ -23,7 +23,6 @@
  * the current values of each as output of task.
  *
  * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Configuration parameters    (ADC, DMA, and TIM global parameters)
  *      Input signals               (NONE)
  *      Output signals              (Internal Voltage, Temperature, Fan Voltage and Current,
  *                                   Stepper Motor Voltage and Current)
@@ -60,13 +59,6 @@ extern "C" {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 typedef struct {
-    struct {
-        ADC_HandleTypeDef                                   *adc1_handle;
-        DMA_HandleTypeDef                                   *adc1_dma;
-        TIM_HandleTypeDef                                   *adc1_timer;
-
-    } config;
-
     struct {
         _HALParam                                           *IntVrf;
         _HALParam                                           *IntTmp;
