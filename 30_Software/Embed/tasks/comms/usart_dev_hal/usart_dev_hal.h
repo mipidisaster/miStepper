@@ -68,42 +68,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        _HALParam                                           *AngPos;
-        SPIPeriph::DevFlt                                   *SPI1CommFlt;
-        HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     *AS5048AFlt;
-
-        _HALParam                                           *ExtTmp;
-        I2CPeriph::DevFlt                                   *I2C1CommFlt;
-        HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     *AD74151Flt;
-
-        _HALParam                                           *IntVrf;
-        _HALParam                                           *IntTmp;
-
-        _HALParam                                           *FanVlt;
-        _HALParam                                           *FanCur;
-        _HALParam                                           *FanAct;
-
-        _HALParam                                           *StpVlt;
-        _HALParam                                           *StpCur;
-        uint16_t                                            *StpFreqAct;
-        uint16_t                                            *StpStatAct;
-        uint32_t                                            *StpcalPost;
-
-    } input;
-
-    struct {
-        float                                               *FanDmd;
-
-        uint8_t                                             *StpEnable;
-        uint8_t                                             *StpGear;
-        uint8_t                                             *StpDirct;
-        uint16_t                                            *StpFreqDmd;
-
-    } output;
-
-}   _taskUSART1;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -113,6 +78,8 @@ typedef struct {
 #define ResetPktCountBt     1       // Bit position for clearing the Package counter
 
 #define EnableInputBit      3       // Bit position for enabling interface with ROS
+
+#define MISTEPPER_RECEIVE   18      // Number of bytes for receiving requests
 
 /**************************************************************************************************
  * Define externally used global signals
@@ -125,7 +92,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vUSART1DeviceHAL(void const * pvParameters);   // "main" task for USART handle
+void vUSART1DeviceHAL(void const * argument);   // "main" task for USART handle
 
 void USART1_IRQHandler(void);               // This task file also includes the prototype used to
                                             // handle Interrupt Service Calls

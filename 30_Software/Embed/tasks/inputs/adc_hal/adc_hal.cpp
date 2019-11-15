@@ -15,19 +15,37 @@
 #include EMBD_ADCTask
 
 /**************************************************************************************************
+ * Globally defined variables used GLOBALLY throughout system (not just this task)
+ *************************************************************************************************/
+_HALParam                IntVrf;
+_HALParam                IntTmp;
+
+_HALParam                FanVlt;
+_HALParam                FanCur;
+
+_HALParam                StpVlt;
+_HALParam                StpCur;
+
+/**************************************************************************************************
  * Define any externally consumed global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
+// Hardware parameters
 extern ADC_HandleTypeDef hadc1;             // Defined within'main.cpp'
 extern DMA_HandleTypeDef hdma_adc1;         // Defined within'main.cpp'
 
 extern TIM_HandleTypeDef htim6;             // Defined within'main.cpp'
 
+// Task inputs
+// None
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-static volatile uint8_t ADC1SequCount = 0;          // Counter for number of ADC runs completed
+static volatile uint8_t lcADC1SequCount = 0;        // Counter for number of ADC runs completed
 
 struct ADCDMARecord {                                   // ADC Record structure
     uint16_t    Analog[ADC1_NumSeq * ADC1_ConvPSeq];    // Array to contain all conversions for
@@ -35,13 +53,13 @@ struct ADCDMARecord {                                   // ADC Record structure
     enum RecordFault : uint8_t {NoFault = 0, Fault = 1} Flt;    // Fault status
 };
 
-static ADCDMARecord             CurADC1Record = { 0 };  // Global 'ADCDMARecord' linked to DMA
+static ADCDMARecord             lcCurADC1Record = { 0 };// Global 'ADCDMARecord' linked to DMA
                                                         // and used within interrupts, to restart
                                                         // DMA if fault occurs
-static GenBuffer<ADCDMARecord>  *ADC1Buff_Handle;       // Pointer to the GenBuff ADCDMARecord
+static GenBuffer<ADCDMARecord>  *lcADC1Buff_Handle;     // Pointer to the GenBuff ADCDMARecord
                                                         // buffer, for interrupt use
-static ADC_HandleTypeDef        *ADC1_Handle;           // Pointer to ADC hardware register and
-static DMA_HandleTypeDef        *ADC1DMA_Handle;        // linked DMA register, for interrupt use
+static ADC_HandleTypeDef        *lcADC1_Handle;         // Pointer to ADC hardware register and
+static DMA_HandleTypeDef        *lcADC1DMA_Handle;      // linked DMA register, for interrupt use
 
 
 /**************************************************************************************************
@@ -59,62 +77,59 @@ void ADC1_AverageParameter(float *param);
 
 /**
   * @brief:  ADC1 Hardware Abstraction Layer task
-  * @param:  _taskADC -> cast to a void pointer
+  * @param:  void const, not used
   * @retval: None (void output)
   */
-void vADC1DeviceHAL(void const * pvParameters) {
-    _taskADC1 pxParameters;
-    pxParameters = * (_taskADC1 *) pvParameters;
-    // pxParameters is to include the parameters required to configure and interface this task
-    // with other tasks within the OS - see header file for parameters (config, input, output).
+void vADC1DeviceHAL(void const * argument) {
 /*---------------------------[     Configure the Internal ADC     ]---------------------------*/
     ADCDMARecord        ADCForm[ADC1_FormBuffer]        = { 0 };  // ADC1 Form initialised
 
     GenBuffer<ADCDMARecord> ADC1GenBuff(&ADCForm[0], ADC1_FormBuffer);
         // Link ADC Form to GenBuffer
 
-    ADC1Buff_Handle = &ADC1GenBuff;                     // Link ADCGenBuff to global pointer
-    ADC1_Handle     = &hadc1;  // Link ADC input to global pointer
-    ADC1DMA_Handle  = &hdma_adc1;     // Link ADC linked DMA to global pointer
+    lcADC1Buff_Handle = &ADC1GenBuff;   // Link ADCGenBuff to global pointer
+    lcADC1_Handle     = &hadc1;         // Link ADC input to global pointer
+    lcADC1DMA_Handle  = &hdma_adc1;     // Link ADC linked DMA to global pointer
                                                         // all for ISR
 
     uint32_t calibration = 0;           // Variable for the calibrated return value
 
     // Start calibration run for Single Ended signals (only these are used within miStepper)
-    HAL_ADCEx_Calibration_Start(ADC1_Handle, ADC_SINGLE_ENDED);
+    HAL_ADCEx_Calibration_Start(lcADC1_Handle, ADC_SINGLE_ENDED);
 
     // Retrieve the read calibration value
-    calibration = HAL_ADCEx_Calibration_GetValue(ADC1_Handle,
+    calibration = HAL_ADCEx_Calibration_GetValue(lcADC1_Handle,
                                                  ADC_SINGLE_ENDED);
 
     // Now put into Calibration register of ADC (Single Ended)
-    HAL_ADCEx_Calibration_SetValue(ADC1_Handle,
+    HAL_ADCEx_Calibration_SetValue(lcADC1_Handle,
                                    ADC_SINGLE_ENDED, calibration);
 
 
     // Link the DMA ADC channel to ADC 1 Device, so as to capture all the conversions triggered
-    __HAL_DMA_DISABLE(ADC1DMA_Handle);      // Ensure that the DMA channel is disabled
-    HAL_DMA_Start(ADC1DMA_Handle,                       // Linked DMA for ADC
-                  (uint32_t)&ADC1_Handle->Instance->DR, // ADC Data Register
-                  (uint32_t)&CurADC1Record.Analog[0],   // Pointer to global "Current" ADC Record
-                                                        // which always contains the live value(s)
-                  ADC1_NumSeq * ADC1_ConvPSeq);         // Size of record
+    __HAL_DMA_DISABLE(lcADC1DMA_Handle);    // Ensure that the DMA channel is disabled
+    HAL_DMA_Start(lcADC1DMA_Handle,                         // Linked DMA for ADC
+                  (uint32_t)&lcADC1_Handle->Instance->DR,   // ADC Data Register
+                  (uint32_t)&lcCurADC1Record.Analog[0],     // Pointer to global "Current" ADC
+                                                            // Record which always contains the
+                                                            // live value(s)
+                  ADC1_NumSeq * ADC1_ConvPSeq);             // Size of record
                     // Contains ADC1_ConvPSeq number of conversions per sequence
                     //          ADC1_NumSeq sequences in record
 
-    SET_BIT(ADC1_Handle->Instance->CFGR,     //
+    SET_BIT(lcADC1_Handle->Instance->CFGR,   //
             ADC_CFGR_DMAEN);                 // Link ADC1 to the DMA
-    SET_BIT(ADC1_Handle->Instance->CFGR,     //
+    SET_BIT(lcADC1_Handle->Instance->CFGR,   //
             ADC_CFGR_DMACFG);                // Enable circular conversions
 
     // As the DMA is now linked to the ADC. It means that any overruns that occur will result in
     // the ADC hardware no longer requesting any DMA requests.
     // Therefore OVR interrupt needs to be enabled, as well as conversion interrupt
-    __HAL_ADC_ENABLE_IT(ADC1_Handle, ADC_IT_OVR);
-    __HAL_ADC_ENABLE_IT(ADC1_Handle, ADC_IT_EOS);
+    __HAL_ADC_ENABLE_IT(lcADC1_Handle, ADC_IT_OVR);
+    __HAL_ADC_ENABLE_IT(lcADC1_Handle, ADC_IT_EOS);
 
     // Enable the DMA Error interrupt flag
-    __HAL_DMA_ENABLE_IT(ADC1DMA_Handle, DMA_IT_TE);
+    __HAL_DMA_ENABLE_IT(lcADC1DMA_Handle, DMA_IT_TE);
 
     // The strategy for fault accommodation is as follows:
     //  A OVRRun fault, or DMA fault
@@ -123,14 +138,14 @@ void vADC1DeviceHAL(void const * pvParameters) {
     //          Any existing ADC faults will be cleared
     //          DMA will be restarted, and enabled
 
-    ADC_Enable(ADC1_Handle);     // Enable the ADC
+    ADC_Enable(lcADC1_Handle);   // Enable the ADC
 
     // Enable Timer for ADC conversions
     __HAL_TIM_CLEAR_FLAG(&htim6,    // Ensure that update flag is already
                          TIM_FLAG_UPDATE);                  // cleared
     __HAL_TIM_ENABLE(&htim6);       // Then enable timer
 
-    LL_ADC_REG_StartConversion(ADC1_Handle->Instance);      // Start conversions!
+    LL_ADC_REG_StartConversion(lcADC1_Handle->Instance);    // Start conversions!
 
     // Create local version of linked signals (prefix with "lc")
     // #=======================================================#
@@ -207,14 +222,14 @@ void vADC1DeviceHAL(void const * pvParameters) {
         }
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.IntVrf)       = lcParams[VRefLoc];
-        *(pxParameters.output.IntTmp)       = lcParams[ITmpLoc];
+        IntVrf          = lcParams[VRefLoc];
+        IntTmp          = lcParams[ITmpLoc];
 
-        *(pxParameters.output.FanVlt)       = lcParams[FANVLoc];
-        *(pxParameters.output.FanCur)       = lcParams[FANILoc];
+        FanVlt          = lcParams[FANVLoc];
+        FanCur          = lcParams[FANILoc];
 
-        *(pxParameters.output.StpVlt)       = lcParams[STPVLoc];
-        *(pxParameters.output.StpCur)       = lcParams[STPILoc];
+        StpVlt          = lcParams[STPVLoc];
+        StpCur          = lcParams[STPILoc];
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
@@ -237,44 +252,45 @@ void vADC1DeviceHAL(void const * pvParameters) {
 void ADC1_IRQHandler(void) {
 #warning "Modify this, as currently its not really doing anything - within DMA_START it locks the HAL!"
     // Check to see if the interrupt was due to completed sequence:
-    if ( (__HAL_ADC_GET_FLAG(ADC1_Handle, ADC_FLAG_EOS) != 0) &&
-         (__HAL_ADC_GET_IT_SOURCE(ADC1_Handle, ADC_IT_EOS) != 0) ) {
+    if ( (__HAL_ADC_GET_FLAG(lcADC1_Handle, ADC_FLAG_EOS) != 0) &&
+         (__HAL_ADC_GET_IT_SOURCE(lcADC1_Handle, ADC_IT_EOS) != 0) ) {
         // If complete sequence interrupt triggered, then clear:
-        __HAL_ADC_CLEAR_FLAG(ADC1_Handle, ADC_FLAG_EOS);    // Clear End of Sequence (EOS) flag
+        __HAL_ADC_CLEAR_FLAG(lcADC1_Handle, ADC_FLAG_EOS);  // Clear End of Sequence (EOS) flag
 
-        ADC1SequCount++;    // Increment the ADC sequence count.
-        if (ADC1SequCount >= ADC1_NumSeq) {     // If sequence count is equal/greater than
+        lcADC1SequCount++;      // Increment the ADC sequence count.
+        if (lcADC1SequCount >= ADC1_NumSeq) {   // If sequence count is equal/greater than
                                                 // number of runs in record.
-            ADC1SequCount = 0;                  // Reset counter
+            lcADC1SequCount = 0;                // Reset counter
 
-            ADC1Buff_Handle->InputWrite(CurADC1Record); // Add the current record into buffer
+            lcADC1Buff_Handle->InputWrite(lcCurADC1Record); // Add the current record into buffer
 
-            if (CurADC1Record.Flt != ADCDMARecord::NoFault) {
+            if (lcCurADC1Record.Flt != ADCDMARecord::NoFault) {
                 // If record is faulty, then DMA has been disabled. Therefore needs to be re-setup
                 // and enabled
-
-                HAL_DMA_Start(ADC1DMA_Handle,                       // Linked DMA for ADC
-                              (uint32_t)&ADC1_Handle->Instance->DR, // ADC Data Register
-                              (uint32_t)&CurADC1Record.Analog[0],   // Pointer to global "Current"
-                                                                    // ADC Record which always
-                                                                    // contains the live value(s)
-                              ADC1_NumSeq * ADC1_ConvPSeq);         // Size of record
+                __HAL_UNLOCK(lcADC1DMA_Handle);
+                HAL_DMA_Start(lcADC1DMA_Handle,                         // Linked DMA for ADC
+                              (uint32_t)&lcADC1_Handle->Instance->DR,   // ADC Data Register
+                              (uint32_t)&lcCurADC1Record.Analog[0],     // Pointer to global
+                                                                        // "Current" ADC Record
+                                                                        // which always contains
+                                                                        // the live value(s)
+                              ADC1_NumSeq * ADC1_ConvPSeq);             // Size of record
                             // Contains ADC1_ConvPSeq number of conversions per sequence
                             //          ADC1_NumSeq sequences in record
             }
 
-            CurADC1Record.Flt    = ADCDMARecord::NoFault;   // Clear any faults on current record
+            lcCurADC1Record.Flt    = ADCDMARecord::NoFault; // Clear any faults on current record
             // DMA is in circular mode, so will continue to run
         }
     }
 
     // Check to see if the interrupt was due to overrun:
-    if ( (__HAL_ADC_GET_FLAG(ADC1_Handle, ADC_FLAG_OVR) != 0) &&
-         (__HAL_ADC_GET_IT_SOURCE(ADC1_Handle, ADC_IT_OVR) != 0) ) {
-        __HAL_ADC_CLEAR_FLAG(ADC1_Handle, ADC_FLAG_OVR);    // Clear Overrun (OVR) flag
+    if ( (__HAL_ADC_GET_FLAG(lcADC1_Handle, ADC_FLAG_OVR) != 0) &&
+         (__HAL_ADC_GET_IT_SOURCE(lcADC1_Handle, ADC_IT_OVR) != 0) ) {
+        __HAL_ADC_CLEAR_FLAG(lcADC1_Handle, ADC_FLAG_OVR);  // Clear Overrun (OVR) flag
 
-        __HAL_DMA_DISABLE(ADC1DMA_Handle);                  // Disable the linked DMA to ADC
-        CurADC1Record.Flt        = ADCDMARecord::Fault;     // Set record as faulty
+        __HAL_DMA_DISABLE(lcADC1DMA_Handle);                // Disable the linked DMA to ADC
+        lcCurADC1Record.Flt      = ADCDMARecord::Fault;     // Set record as faulty
     }
 }
 
@@ -287,12 +303,13 @@ void DMA1_Channel1_IRQHandler(void) {
 
     // Check to see if the interrupt was due to DMA transmit error
     //      See if Interrupt has been enabled - in combination with - Interrupt being set
-    if ( (__HAL_DMA_GET_IT_SOURCE(ADC1DMA_Handle, DMA_IT_TE) != 0) &&
-         (__HAL_DMA_GET_FLAG(ADC1DMA_Handle, __HAL_DMA_GET_TE_FLAG_INDEX(ADC1DMA_Handle)) != 0) ) {
-        __HAL_DMA_CLEAR_FLAG(ADC1DMA_Handle, DMA_FLAG_TE1); // Clear the interrupt (Channel 1)
+    if ( (__HAL_DMA_GET_IT_SOURCE(lcADC1DMA_Handle, DMA_IT_TE) != 0) &&
+         (__HAL_DMA_GET_FLAG(lcADC1DMA_Handle,
+                                 __HAL_DMA_GET_TE_FLAG_INDEX(lcADC1DMA_Handle)) != 0) ) {
+        __HAL_DMA_CLEAR_FLAG(lcADC1DMA_Handle, DMA_FLAG_TE1);   // Clear the interrupt (Channel 1)
 
-        __HAL_DMA_DISABLE(ADC1DMA_Handle);                  // Disable the linked DMA to ADC
-        CurADC1Record.Flt        = ADCDMARecord::Fault;     // Set record as faulty
+        __HAL_DMA_DISABLE(lcADC1DMA_Handle);                    // Disable the linked DMA to ADC
+        lcCurADC1Record.Flt      = ADCDMARecord::Fault;         // Set record as faulty
 
         // Essentially if there is a DMA error fault, then cancel all ADC conversions!
     }

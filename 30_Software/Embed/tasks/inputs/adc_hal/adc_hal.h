@@ -20,12 +20,7 @@
  *
  * This will then periodically check for a complete 'record' of ADC data, then convert these
  * conversions into a more useful format (i.e. Voltage, Current, Temperature, etc.), and provide
- * the current values of each as output of task.
- *
- * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Input signals               (NONE)
- *      Output signals              (Internal Voltage, Temperature, Fan Voltage and Current,
- *                                   Stepper Motor Voltage and Current)
+ * the current values of each as output of the task.
  *
  *************************************************************************************************/
 
@@ -58,20 +53,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        _HALParam                                           *IntVrf;
-        _HALParam                                           *IntTmp;
-
-        _HALParam                                           *FanVlt;
-        _HALParam                                           *FanCur;
-
-        _HALParam                                           *StpVlt;
-        _HALParam                                           *StpCur;
-
-    } output;
-
-}   _taskADC1;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -113,13 +95,12 @@ typedef struct {
  *************************************************************************************************/
 // None
 
-
 /**************************************************************************************************
  * Prototypes for functions used externally
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vADC1DeviceHAL(void const * pvParameters); // "main" task for ADC handle
+void vADC1DeviceHAL(void const * argument); // "main" task for ADC handle
 
 void ADC1_IRQHandler(void);                 // This task file also includes the prototype used to
 void DMA1_Channel1_IRQHandler(void);        // handle Interrupt Service Calls

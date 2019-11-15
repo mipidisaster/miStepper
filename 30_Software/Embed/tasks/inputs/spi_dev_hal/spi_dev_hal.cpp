@@ -15,16 +15,29 @@
 #include EMBD_SPITask
 
 /**************************************************************************************************
+ * Globally defined variables used GLOBALLY throughout system (not just this task)
+ *************************************************************************************************/
+_HALParam                                           AngPos;
+SPIPeriph::DevFlt                                   SPI1CommFlt;
+HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     AS5048AFlt;
+
+/**************************************************************************************************
  * Define any externally consumed global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
+// Hardware parameters
 extern SPI_HandleTypeDef hspi1;             // Defined within 'main.cpp'
 
+// Task inputs
+// None
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-static SPIPeriph    *SPI1_Handle;       // Pointer to the SPI1 class handle, for interrupt use
+static SPIPeriph    *lcSPI1_Handle;         // Pointer to the SPI1 class handle, for interrupt use
 
 
 /**************************************************************************************************
@@ -39,14 +52,10 @@ void AS5048A_IntrManage(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, G
 
 /**
   * @brief:  SPI1 Device Hardware Abstraction Layer task
-  * @param:  _taskSPI -> cast to a void pointer
+  * @param:  void const, not used
   * @retval: None (void output)
   */
-void vSPI1DeviceHAL(void const * pvParameters) {
-    _taskSPI1 pxParameters;
-    pxParameters = * (_taskSPI1 *) pvParameters;
-    // pxParameters is to include the parameters required to configure and interface this task
-    // with other tasks within the OS - see header file for parameters (config, input, output).
+void vSPI1DeviceHAL(void const * argument) {
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
     // Create locally used variables within task:
     SPIPeriph::Form     SPIForm[SPI1_FormBuffer]        = { 0 };    // SPI1 Form initialised
@@ -55,7 +64,7 @@ void vSPI1DeviceHAL(void const * pvParameters) {
     // Create SPI1 class
     // =================
     SPIPeriph   SPI1Dev(&hspi1, &SPIForm[0], SPI1_FormBuffer);
-    SPI1_Handle = &SPI1Dev;         // Link SPI1Dev class to global pointer (for ISR)
+    lcSPI1_Handle = &SPI1Dev;           // Link SPI1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup SPI Connected Device Classes ]---------------------------*/
     uint16_t AS5048Arr[2][SPI1_AS5048AForm] = { 0 };            // AS5048 internal class buffer
@@ -122,10 +131,10 @@ void vSPI1DeviceHAL(void const * pvParameters) {
         }
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.SPI1CommFlt)  = lcSPI1CommFlt;
-        *(pxParameters.output.AS5048AFlt)   = lcAS5048ACommState;
+        SPI1CommFlt     = lcSPI1CommFlt;
+        AS5048AFlt      = lcAS5048ACommState;
 
-        *(pxParameters.output.AngPos)       = lcAngPos;
+        AngPos          = lcAngPos;
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
@@ -145,7 +154,7 @@ void vSPI1DeviceHAL(void const * pvParameters) {
   * @param:  None (void input)
   * @retval: None (void output)
   */
-void SPI1_IRQHandler(void) { SPI1_Handle->IRQHandle(); };
+void SPI1_IRQHandler(void) { lcSPI1_Handle->IRQHandle(); };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************

@@ -20,11 +20,7 @@
  *
  * This will then periodically read in the current Fan Demand, convert this to the required PWM
  * width and update the PWM generator. If the demand is outside of width, the demand will be
- * saturated, and provided as output of task.
- *
- * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Input signals               (Fan Demand)
- *      Output signals              (Actual Fan Demand (saturated output))
+ * saturated, and provided as output of the task.
  *
  *************************************************************************************************/
 
@@ -56,18 +52,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        float                                               *FanDmd;
-
-    } input;
-
-    struct {
-        _HALParam                                           *FanAct;
-
-    } output;
-
-}   _taskFAN;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -82,13 +67,12 @@ typedef struct {
  *************************************************************************************************/
 // None
 
-
 /**************************************************************************************************
  * Prototypes for functions used externally
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vFANMotorHAL(void const * pvParameters);   // "main" task for FAN handle
+void vFANMotorHAL(void const * argument);   // "main" task for FAN handle
 
 #ifdef __cplusplus
 }

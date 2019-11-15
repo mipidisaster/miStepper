@@ -60,23 +60,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        uint8_t                                             *StpEnable;
-        uint8_t                                             *StpGear;
-        uint8_t                                             *StpDirct;
-        uint16_t                                            *StpFreqDmd;
-
-    } input;
-
-    struct {
-        uint16_t                                            *StpFreqAct;
-        uint16_t                                            *StpStatAct;
-        uint32_t                                            *StpcalPost;
-
-    } output;
-
-}   _taskSTP;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -99,12 +83,11 @@ typedef struct {
  *************************************************************************************************/
 // None
 
-
 /**************************************************************************************************
  * Prototypes for functions used externally
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void vSTPMotorHAL(void const * pvParameters);   // "main" task for Stepper Motor handle
+void vSTPMotorHAL(void const * argument);   // "main" task for Stepper Motor handle
 
 void TIM1_UP_TIM16_IRQHandler(void);        // This task file also includes the prototype used to
 void TIM1_CC_IRQHandler(void);              // handle Interrupt Service Calls

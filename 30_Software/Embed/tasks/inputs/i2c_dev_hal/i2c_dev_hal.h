@@ -22,11 +22,7 @@
  *
  *  This will then periodically check the status of the I2C interrupt management and communication
  *  status. If there is new data, the AD7415 class will be updated with the latest data, and the
- *  current value of external temperature will be an output of task.
- *
- * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Input signals               (NONE)
- *      Output signals              (External Temperature, and communication fault status)
+ *  current value of external temperature will be an output of the task.
  *
  *************************************************************************************************/
 
@@ -61,15 +57,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        I2CPeriph::DevFlt                                   *I2C1CommFlt;
-        HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     *AD74151Flt;
-        _HALParam                                           *ExtTmp;
-
-    } output;
-
-}   _taskI2C1;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -92,7 +80,7 @@ typedef struct {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vI2C1DeviceHAL(void const * pvParameters); // "main" task for I2C handle
+void vI2C1DeviceHAL(void const * argument); // "main" task for I2C handle
 
 void I2C1_EV_IRQHandler(void);              // This task file also includes the prototype used to
 void I2C1_ER_IRQHandler(void);              // handle Interrupt Service Calls

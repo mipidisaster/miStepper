@@ -22,11 +22,7 @@
  *
  * This will then periodically check the status of the SPI interrupt management and communication
  * status. If there is new data, the AS5048 class will be updated with the latest data, and the
- * current value of angular position will be an output of task
- *
- * When task is triggered, it will be expecting a void type casted parameter containing:
- *      Input signals               (NONE)
- *      Output signals              (Angular position, and communication fault status)
+ * current value of angular position will be an output of the task
  *
  *************************************************************************************************/
 #ifndef SPI_DEV_HAL_H_
@@ -61,15 +57,7 @@ extern "C" {
  * Define externally used structures
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-typedef struct {
-    struct {
-        SPIPeriph::DevFlt                                   *SPI1CommFlt;
-        HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     *AS5048AFlt;
-        _HALParam                                           *AngPos;
-
-    } output;
-
-}   _taskSPI1;
+// None
 
 /**************************************************************************************************
  * MACROs used within task
@@ -86,13 +74,12 @@ typedef struct {
  *************************************************************************************************/
 // None
 
-
 /**************************************************************************************************
  * Prototypes for functions used externally
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 
-void vSPI1DeviceHAL(void const * pvParameters); // "main" task for SPI handle
+void vSPI1DeviceHAL(void const * argument); // "main" task for SPI handle
 
 void SPI1_IRQHandler(void);                 // This task file also includes the prototype used to
                                             // handle Interrupt Service Calls

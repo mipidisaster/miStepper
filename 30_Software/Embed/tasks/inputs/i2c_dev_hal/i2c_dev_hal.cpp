@@ -15,16 +15,29 @@
 #include EMBD_I2CTask
 
 /**************************************************************************************************
+ * Globally defined variables used GLOBALLY throughout system (not just this task)
+ *************************************************************************************************/
+_HALParam                                           ExtTmp;
+I2CPeriph::DevFlt                                   I2C1CommFlt;
+HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     AD74151Flt;
+
+/**************************************************************************************************
  * Define any externally consumed global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
+// Hardware parameters
 extern I2C_HandleTypeDef hi2c1;             // Defined within 'main.cpp'
 
+// Task inputs
+// None
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-static I2CPeriph    *I2C1_Handle;       // Pointer to the I2C1 class handle, for interrupt only
+static I2CPeriph    *lcI2C1_Handle;         // Pointer to the I2C1 class handle, for interrupt use
 
 /**************************************************************************************************
  * Define any local functions
@@ -37,14 +50,10 @@ void AD74151_IntrManage(I2CPeriph *hi2c, AD741x *device, uint8_t *wrBuff, uint8_
 
 /**
   * @brief:  I2C1 Device Hardware Abstraction Layer task
-  * @param:  _taskI2C -> cast to a void pointer
+  * @param:  void const, not used
   * @retval: None (void output)
   */
-void vI2C1DeviceHAL(void const * pvParameters) {
-    _taskI2C1 pxParameters;
-    pxParameters = * (_taskI2C1 *) pvParameters;
-    // pxParameters is to include the parameters required to configure and interface this task
-    // with other tasks within the OS - see header file for parameters (config, input, output).
+void vI2C1DeviceHAL(void const * argument) {
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
     // Create locally used variables within task:
     I2CPeriph::Form     I2CForm[I2C1_FormBuffer]        = { 0 };    // I2C1 Form initialised
@@ -53,7 +62,7 @@ void vI2C1DeviceHAL(void const * pvParameters) {
     // Create I2C1 class
     // =================
     I2CPeriph   I2C1Dev(&hi2c1, &I2CForm[0], I2C1_FormBuffer);
-    I2C1_Handle = &I2C1Dev;         // Link I2C1Dev class to global pointer (for ISR)
+    lcI2C1_Handle = &I2C1Dev;           // Link I2C1Dev class to global pointer (for ISR)
 
 /*---------------------------[ Setup I2C Connected Device Classes ]---------------------------*/
     AD741x::Form        AD7415Form[I2C1_AD7415Form]     = { 0 };    // AD7415 Form initialised
@@ -114,9 +123,9 @@ void vI2C1DeviceHAL(void const * pvParameters) {
         }
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.I2C1CommFlt)  = lcI2C1CommFlt;
-        *(pxParameters.output.AD74151Flt)   = lcAD74151CommState;
-        *(pxParameters.output.ExtTmp)       = lcExtTmp;
+        I2C1CommFlt     = lcI2C1CommFlt;
+        AD74151Flt      = lcAD74151CommState;
+        ExtTmp          = lcExtTmp;
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
@@ -136,14 +145,14 @@ void vI2C1DeviceHAL(void const * pvParameters) {
   * @param:  None (void input)
   * @retval: None (void output)
   */
-void I2C1_EV_IRQHandler(void) { I2C1_Handle->IRQEventHandle(); }
+void I2C1_EV_IRQHandler(void) { lcI2C1_Handle->IRQEventHandle(); }
 
 /**
   * @brief:  I2C1 Error Interrupt Service Routine handler.
   * @param:  None (void input)
   * @retval: None (void output)
   */
-void I2C1_ER_IRQHandler(void) { I2C1_Handle->IRQErrorHandle(); }
+void I2C1_ER_IRQHandler(void) { lcI2C1_Handle->IRQErrorHandle(); }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************

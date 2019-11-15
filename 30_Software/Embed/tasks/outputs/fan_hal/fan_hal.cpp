@@ -15,11 +15,22 @@
 #include EMBD_FANTask
 
 /**************************************************************************************************
+ * Globally defined variables used GLOBALLY throughout system (not just this task)
+ *************************************************************************************************/
+_HALParam                FanAct;
+
+/**************************************************************************************************
  * Define any externally consumed global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
+// Hardware parameters
 extern TIM_HandleTypeDef htim15;            // Defined within 'main.cpp'
 
+// Task inputs
+extern float             FanDmd;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,14 +45,10 @@ extern TIM_HandleTypeDef htim15;            // Defined within 'main.cpp'
 
 /**
   * @brief:  Fan Motor Hardware Abstraction Layer task
-  * @param:  _taskFAN -> cast to a void pointer
+  * @param:  void const, not used
   * @retval: None (void output)
   */
-void vFANMotorHAL(void const * pvParameters) {
-    _taskFAN pxParameters;
-    pxParameters = * (_taskFAN *) pvParameters;
-    // pxParameters is to include the parameters required to configure and interface this task
-    // with other tasks within the OS - see header file for parameters (config, input, output).
+void vFANMotorHAL(void const * argument) {
 /*---------------------------[     Setup Timer for PWM control    ]---------------------------*/
 
     // Setup and kick-off the PWM on channel 2 of timer 2
@@ -88,11 +95,11 @@ void vFANMotorHAL(void const * pvParameters) {
             lcFanDmd.flt    = _HALParam::NoFault;   // and indicate no fault (will NEVER get set
                                                     // true)
 
-            *(pxParameters.input.FanDmd)    = lcFanDmd.data;
+            FanDmd          = lcFanDmd.data;
             // Now link this value to the boundary
         }
-        else                                                // Any other time
-            lcFanDmd.data   = *(pxParameters.input.FanDmd); // Task reads in the Fan Demand
+        else                                // Any other time
+            lcFanDmd.data   = FanDmd;       // Task reads in the Fan Demand
 
         if (lcFanDmd.data <= 0.00) {        // If Fan demand is 0, i.e. Switch off PWM output
             __HAL_TIM_SET_COMPARE(&htim15,
@@ -115,7 +122,7 @@ void vFANMotorHAL(void const * pvParameters) {
                                                                 // fault free
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.FanAct)   = lcFanDmd;
+        FanAct          = lcFanDmd;
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first

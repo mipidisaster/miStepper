@@ -15,17 +15,33 @@
 #include EMBD_STPTask
 
 /**************************************************************************************************
+ * Globally defined variables used GLOBALLY throughout system (not just this task)
+ *************************************************************************************************/
+uint16_t                 StpFreqAct  = 0;
+uint16_t                 StpStatAct  = 0;
+uint32_t                 StpcalPost  = 0;
+
+/**************************************************************************************************
  * Define any externally consumed global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
+// Hardware parameters
 extern TIM_HandleTypeDef htim1;             // Defined within 'main.cpp'
 extern DMA_HandleTypeDef hdma_tim1_ch3;     // Defined within 'main.cpp'
 
+// Task inputs
+extern uint8_t           StpEnable;
+extern uint8_t           StpGear;
+extern uint8_t           StpDirct;
+extern uint16_t          StpFreqDmd;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * Define any local global signals
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-static Stepper      *Stepper_Handle;    // Pointer to the Stepper class handle, for interrupt use
+static Stepper      *lcStepper_Handle;  // Pointer to the Stepper class handle, for interrupt use
 
 /**************************************************************************************************
  * Define any local functions
@@ -35,14 +51,10 @@ static Stepper      *Stepper_Handle;    // Pointer to the Stepper class handle, 
 
 /**
   * @brief:  Stepper Motor Hardware Abstraction Layer task
-  * @param:  _taskSTP -> cast to a void pointer
+  * @param:  void const, not used
   * @retval: None (void output)
   */
-void vSTPMotorHAL(void const * pvParameters) {
-    _taskSTP pxParameters;
-    pxParameters = * (_taskSTP *) pvParameters;
-    // pxParameters is to include the parameters required to configure and interface this task
-    // with other tasks within the OS - see header file for parameters (config, input, output).
+void vSTPMotorHAL(void const * argument) {
 /*---------------------------[     Setup Stepper GPIO handles     ]---------------------------*/
     // Generate the GPIO pins outside of 'Stepper' handle scope
     // ========================================================
@@ -98,7 +110,7 @@ void vSTPMotorHAL(void const * pvParameters) {
             &STP_RESET, &STP_DIR, &STP_MS[0], 3,
             200 * 16, STPConfig
             );
-    Stepper_Handle  = &NEMA;        // Link NEMA class to global pointer (for ISR)
+    lcStepper_Handle  = &NEMA;          // Link NEMA class to global pointer (for ISR)
 
 /*---------------------------[  Stepper is now ready for control  ]---------------------------*/
 
@@ -111,8 +123,8 @@ void vSTPMotorHAL(void const * pvParameters) {
 
     // Output to this task
     // #=================#
-    uint16_t    StpStatAct  = 0;// Output register for Stepper State
-    uint16_t    StpFreqAct  = 0;// Output value for Actual Stepper Frequency
+    uint16_t    lcStpFreqAct  = 0;
+    uint16_t    lcStpStatAct  = 0;
 
     uint8_t     StpCurDir   = 0;// Captured selected direction of motor
     uint8_t     StpCurGer   = 0;// Captured selected gearing of motor
@@ -143,10 +155,10 @@ void vSTPMotorHAL(void const * pvParameters) {
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // Capture any new updates to input signals and link to local internals
-        lcStpEnable     = *(pxParameters.input.StpEnable);
-        lcStpGear       = *(pxParameters.input.StpGear);
-        lcStpDirct      = *(pxParameters.input.StpDirct);
-        lcStpFreqDmd    = *(pxParameters.input.StpFreqDmd);
+        lcStpEnable     = StpEnable;
+        lcStpGear       = StpGear;
+        lcStpDirct      = StpDirct;
+        lcStpFreqDmd    = StpFreqDmd;
 
         // Ensure that all provided data is within acceptable limits:
         if (lcStpGear > STP_MaxGear) {      // If gear selection is greater than amount of gears
@@ -165,13 +177,13 @@ void vSTPMotorHAL(void const * pvParameters) {
         // Check if the request to ENABLE the stepper has been made (i.e. StpEnable is not zero)
         if (lcStpEnable != 0) {                     // If motor has been enabled
             STP_ENABLE.setValue(GPIO::State::LOW);  // Set the ENABLE pin to LOW (enable)
-            StpStatAct  |= (1 << STP_StateEnable);  // Setup Stepper Status to indicate enabled
+            lcStpStatAct  |= (1 << STP_StateEnable);// Setup Stepper Status to indicate enabled
 
             // First need to check to see if the requested demand is "0", i.e. off, and that this
             // has NOT been captured yet
             if (lcStpFreqDmd   == 0) {  // If new demand is for no motion
-                if (StpFreqAct != 0) {  // and this has NOT been captured yet
-                    StpFreqAct  = 0;    // Ensure the stationary request is captured (so not run
+                if (lcStpFreqAct != 0) {// and this has NOT been captured yet
+                    lcStpFreqAct  = 0;  // Ensure the stationary request is captured (so not run
                                         // again)
                     StpCurGer   = 0;    // Capture gear is zero
                     StpCurDir   = 0;    // Capture Direction is zero
@@ -186,7 +198,7 @@ void vSTPMotorHAL(void const * pvParameters) {
                 // parameters)
                 // Check to see if any of the parameters have actually changed, i.e. frequency,
                 // gear ratio, or direction
-                if ( (lcStpFreqDmd != StpFreqAct)  ||  (lcStpGear    != StpCurGer)   ||
+                if ( (lcStpFreqDmd != lcStpFreqAct)  ||  (lcStpGear    != StpCurGer)   ||
                      (lcStpDirct   != StpCurDir) )  {
 
                     if (lcStpDirct == 0) {          // If direction is "0"
@@ -226,9 +238,9 @@ void vSTPMotorHAL(void const * pvParameters) {
                     NEMA.newVelocity(MtrDir, lcStpGear, lcStpFreqDmd, MtrPol, PolCountVal);
 
                     // Now capture new values:
-                    StpFreqAct  = lcStpFreqDmd;
-                    StpCurGer   = lcStpGear;
-                    StpCurDir   = lcStpDirct;
+                    lcStpFreqAct    = lcStpFreqDmd;
+                    StpCurGer       = lcStpGear;
+                    StpCurDir       = lcStpDirct;
                 }
             }
         } else {        // If the motor has not been enabled then
@@ -238,25 +250,25 @@ void vSTPMotorHAL(void const * pvParameters) {
             // Otherwise motor is stationary
             STP_ENABLE.setValue(GPIO::State::HIGH); // Set the ENABLE pin to HIGH (disabled)
 
-            StpFreqAct  = 0;    // Capture that the motor is now stationary
+            lcStpFreqAct  = 0;  // Capture that the motor is now stationary
             StpCurGer   = 0;    // Capture gear is zero
             StpCurDir   = 0;    // Capture Direction is zero
-            StpStatAct  = 0;    // Setup Status to indicate all off
+            lcStpStatAct  = 0;  // Setup Status to indicate all off
         }
 
-        if (StpCurDir == 0) {                       // If direction is set to "0"
-            StpStatAct  &= ~(1 << STP_DirectionFl); // Clear bit in register for Direction
-        } else {                                    // Otherwise
-            StpStatAct  |= (1 << STP_DirectionFl);  // Set bit in register for Direction
+        if (StpCurDir == 0) {                           // If direction is set to "0"
+            lcStpStatAct  &= ~(1 << STP_DirectionFl);   // Clear bit in register for Direction
+        } else {                                        // Otherwise
+            lcStpStatAct  |= (1 << STP_DirectionFl);    // Set bit in register for Direction
         }
 
-        StpStatAct      &= ~(STP_MaxGear << STP_GearStart); // Clear position(s) for gearing
-        StpStatAct      |= (StpCurGer   << STP_GearStart);  // Now set with current gearing
+        lcStpStatAct    &= ~(STP_MaxGear << STP_GearStart); // Clear position(s) for gearing
+        lcStpStatAct    |= (StpCurGer   << STP_GearStart);  // Now set with current gearing
 
         // Link internal signals to output pointers:
-        *(pxParameters.output.StpFreqAct)   = StpFreqAct;
-        *(pxParameters.output.StpStatAct)   = StpStatAct;
-        *(pxParameters.output.StpcalPost)   = NEMA.calcPos;
+        StpFreqAct      = lcStpFreqAct;
+        StpStatAct      = lcStpStatAct;
+        StpcalPost      = NEMA.calcPos;
 
 
         FirstPass = 0;              // Update this flag such that it now indicates that first
@@ -276,14 +288,14 @@ void vSTPMotorHAL(void const * pvParameters) {
   * @param:  None (void input)
   * @retval: None (void output)
   */
-void TIM1_UP_TIM16_IRQHandler(void) {  Stepper_Handle->IRQUPHandler();         }
+void TIM1_UP_TIM16_IRQHandler(void) {  lcStepper_Handle->IRQUPHandler();         }
 
 /**
   * @brief:  Timer 1 Capture/Compare Interrupt Service Routine handler
   * @param:  None (void input)
   * @retval: None (void output)
   */
-void TIM1_CC_IRQHandler(void)       {  Stepper_Handle->IRQCounterCCHandler();  }
+void TIM1_CC_IRQHandler(void)       {  lcStepper_Handle->IRQCounterCCHandler();  }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
