@@ -63,8 +63,12 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
+DMA_HandleTypeDef hdma_i2c1_tx;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_rx;
+DMA_HandleTypeDef hdma_spi1_tx;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
@@ -85,48 +89,6 @@ osThreadId STPMotorManageHandle;
 /* USER CODE BEGIN PV */
 volatile _miTimeTrack   TimeKeeper = 0;
 volatile _taskTime      TimeSheet[MiTasksStats] = { 0 };
-
-_taskSPI1   xSPI1pass;
-_taskI2C1   xI2C1pass;
-_taskADC1   xADC1pass;
-
-_taskUSART1 xUSART1pass;
-
-_taskFAN    xFANpass;
-_taskSTP    xSTPpass;
-
-// Linkage signals
-// ~~~~~~~~~~~~~~~
-_HALParam                                           AngPos;
-_HALParam                                           ExtTmp;
-
-_HALParam                                           IntVrf;
-_HALParam                                           IntTmp;
-
-_HALParam                                           FanVlt;
-_HALParam                                           FanCur;
-_HALParam                                           FanAct;
-
-float                                               FanDmd = 0;
-
-_HALParam                                           StpVlt;
-_HALParam                                           StpCur;
-uint16_t                                            StpFreqAct  = 0;
-uint16_t                                            StpStatAct  = 0;
-uint32_t                                            StpcalPost  = 0;
-
-uint8_t                                             StpEnable   = 0;
-uint8_t                                             StpGear     = 0;
-uint8_t                                             StpDirct    = 0;
-uint16_t                                            StpFreqDmd  = 0;
-                    // Dmd of 18751, with gear of 7, should get 1rpm
-
-// Maintenance fault flags
-//~~~~~~~~~~~~~~~~~~~~~~~~~
-SPIPeriph::DevFlt                                   SPI1CommFlt;
-I2CPeriph::DevFlt                                   I2C1CommFlt;
-HALDevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt>     AS5048AFlt;
-HALDevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt>     AD74151Flt;
 
 /* USER CODE END PV */
 
@@ -167,6 +129,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
+  
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -195,72 +158,6 @@ int main(void)
   MX_TIM15_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  /* RTOS Linkage Configuration-----------------------------------------------*/
-  // Setup signal linkage for the SPI task
-  xSPI1pass.output.SPI1CommFlt      = &SPI1CommFlt;
-  xSPI1pass.output.AS5048AFlt       = &AS5048AFlt;
-  xSPI1pass.output.AngPos           = &AngPos;
-
-  xUSART1pass.input.AngPos          = xSPI1pass.output.AngPos;      // Ang Position     to USART
-  xUSART1pass.input.SPI1CommFlt     = xSPI1pass.output.SPI1CommFlt; // Faults           to USART
-  xUSART1pass.input.AS5048AFlt      = xSPI1pass.output.AS5048AFlt;  // Faults           to USART
-
-  // Setup signal linkage for the I2C task
-  xI2C1pass.output.I2C1CommFlt      = &I2C1CommFlt;
-  xI2C1pass.output.AD74151Flt       = &AD74151Flt;
-  xI2C1pass.output.ExtTmp           = &ExtTmp;
-
-  xUSART1pass.input.ExtTmp          = xI2C1pass.output.ExtTmp;      // Ext Temperature  to USART
-  xUSART1pass.input.I2C1CommFlt     = xI2C1pass.output.I2C1CommFlt; // Faults           to USART
-  xUSART1pass.input.AD74151Flt      = xI2C1pass.output.AD74151Flt;  // Faults           to USART
-
-  // Setup signal linkage for the ADC task
-  xADC1pass.output.IntVrf           = &IntVrf;
-  xADC1pass.output.IntTmp           = &IntTmp;
-
-  xADC1pass.output.FanVlt           = &FanVlt;
-  xADC1pass.output.FanCur           = &FanCur;
-
-  xADC1pass.output.StpVlt           = &StpVlt;
-  xADC1pass.output.StpCur           = &StpCur;
-
-  xUSART1pass.input.IntVrf          = xADC1pass.output.IntVrf;      // Int Voltage      to USART
-  xUSART1pass.input.IntTmp          = xADC1pass.output.IntTmp;      // Int Temperature  to USART
-
-  xUSART1pass.input.FanVlt          = xADC1pass.output.FanVlt;      // Fan Voltage      to USART
-  xUSART1pass.input.FanCur          = xADC1pass.output.FanCur;      // Fan Current      to USART
-
-  xUSART1pass.input.StpVlt          = xADC1pass.output.StpVlt;      // STP Voltage      to USART
-  xUSART1pass.input.StpCur          = xADC1pass.output.StpCur;      // STP Current      to USART
-
-  // Setup signal linkage for the USART task
-  xUSART1pass.output.FanDmd         = &FanDmd;
-
-  xFANpass.input.FanDmd             = xUSART1pass.output.FanDmd;    // Fan Demand       to USART
-
-  xUSART1pass.output.StpEnable      = &StpEnable;
-  xUSART1pass.output.StpGear        = &StpGear;
-  xUSART1pass.output.StpDirct       = &StpDirct;
-  xUSART1pass.output.StpFreqDmd     = &StpFreqAct;
-
-  xSTPpass.input.StpEnable          = xUSART1pass.output.StpEnable;
-  xSTPpass.input.StpGear            = xUSART1pass.output.StpGear;
-  xSTPpass.input.StpDirct           = xUSART1pass.output.StpDirct;
-  xSTPpass.input.StpFreqDmd         = xUSART1pass.output.StpFreqDmd;
-
-  // Setup signal linkage for the FAN task
-  xFANpass.output.FanAct            = &FanAct;
-  xUSART1pass.input.FanAct          = xFANpass.output.FanAct;
-
-
-  // Setup signal linkage for the STEPPER task
-  xSTPpass.output.StpFreqAct        = &StpFreqAct;
-  xSTPpass.output.StpStatAct        = &StpStatAct;
-  xSTPpass.output.StpcalPost        = &StpcalPost;
-
-  xUSART1pass.input.StpFreqAct      = xSTPpass.output.StpFreqAct;   // STP Frequency    to USART
-  xUSART1pass.input.StpStatAct      = xSTPpass.output.StpStatAct;   // STP Status       to USART
-  xUSART1pass.input.StpcalPost      = xSTPpass.output.StpcalPost;   // STP calc Posit   to USART
 
   /* USER CODE END 2 */
 
@@ -287,27 +184,27 @@ int main(void)
 
   /* definition and creation of SPIDeviceManage */
   osThreadDef(SPIDeviceManage, vSPI1DeviceHAL, osPriorityNormal, 0, 384);
-  SPIDeviceManageHandle = osThreadCreate(osThread(SPIDeviceManage), (void *) &xSPI1pass);
+  SPIDeviceManageHandle = osThreadCreate(osThread(SPIDeviceManage), NULL);
 
   /* definition and creation of USARTDeviceManage */
   osThreadDef(USARTDeviceManage, vUSART1DeviceHAL, osPriorityBelowNormal, 0, 384);
-  USARTDeviceManageHandle = osThreadCreate(osThread(USARTDeviceManage), (void *) &xUSART1pass);
+  USARTDeviceManageHandle = osThreadCreate(osThread(USARTDeviceManage), NULL);
 
   /* definition and creation of I2CDeviceManage */
   osThreadDef(I2CDeviceManage, vI2C1DeviceHAL, osPriorityNormal, 0, 384);
-  I2CDeviceManageHandle = osThreadCreate(osThread(I2CDeviceManage), (void *) &xI2C1pass);
+  I2CDeviceManageHandle = osThreadCreate(osThread(I2CDeviceManage), NULL);
 
   /* definition and creation of ADCDeviceManage */
   osThreadDef(ADCDeviceManage, vADC1DeviceHAL, osPriorityNormal, 0, 384);
-  ADCDeviceManageHandle = osThreadCreate(osThread(ADCDeviceManage), (void *) &xADC1pass);
+  ADCDeviceManageHandle = osThreadCreate(osThread(ADCDeviceManage), NULL);
 
   /* definition and creation of FANMotorManage */
   osThreadDef(FANMotorManage, vFANMotorHAL, osPriorityAboveNormal, 0, 128);
-  FANMotorManageHandle = osThreadCreate(osThread(FANMotorManage), (void *) &xFANpass);
+  FANMotorManageHandle = osThreadCreate(osThread(FANMotorManage), NULL);
 
   /* definition and creation of STPMotorManage */
   osThreadDef(STPMotorManage, vSTPMotorHAL, osPriorityHigh, 0, 384);
-  STPMotorManageHandle = osThreadCreate(osThread(STPMotorManage), (void *) &xSTPpass);
+  STPMotorManageHandle = osThreadCreate(osThread(STPMotorManage), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -783,7 +680,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 500000;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -807,8 +704,10 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_DMA_Init(void) 
 {
+
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
@@ -823,6 +722,18 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel7_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
+  /* DMA2_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel3_IRQn);
+  /* DMA2_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel4_IRQn);
+  /* DMA2_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+  /* DMA2_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 
 }
 
@@ -989,7 +900,6 @@ void TIM1_BRK_TIM15_IRQHandler(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
-
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   for(;;)
