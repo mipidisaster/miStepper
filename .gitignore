@@ -32,3 +32,9 @@ Status Report.txt
 30_Software/Inc/*
 !30_Software/Inc/main.*
 !30_Software/Embed/
+
+# Include folder entries for the ROS/milibrary repositories in support of miStepper.
+# to be included such that this repository can be used as 'Master' for miStepper; although
+# the individual repositories can be called seperately
+#!milibrary
+#!miStepperROS
