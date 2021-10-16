@@ -1,0 +1,21 @@
+Field=Comment~String~Comment~100|Field=Description~String~Description~100|Field=Designator~String~Designator~100|Field=Footprint~String~Footprint~100|Field=LibRef~String~LibRef~100|Field=Quantity~Integer~Quantity~100|ReportField=Currency~<none>|ReportField=ProductionQuantity~1|ReportField=ProjectFileName~miStepper.PrjPcb|ReportField=ProjectFullPath~C:\00_Projects\02_Hephaestus\miStepper\20_Electronics\miStepper.PrjPcb|ReportField=Title~BOM_PartType For Project [miStepper.PrjPcb] (No PCB Document Selected)|ReportField=TotalQuantity~69|ReportField=ReportTime~16:06:32|ReportField=ReportDate~27/03/2020|ReportField=ReportDateTime~27/03/2020 16:06:32|ReportField=OutputName~BOM_PartType|ReportField=OutputType~BOM_PartType|ReportField=GeneratorName~BOM|ReportField=GeneratorDescription~Bill of Materials|ReportField=VariantName~None|ReportField=Address1~|ReportField=Address2~|ReportField=Address3~|ReportField=Address4~|ReportField=Application_BuildNumber~|ReportField=ApprovedBy~|ReportField=Author~|ReportField=CheckedBy~|ReportField=CompanyName~|ReportField=ConfigurationParameters~|ReportField=ConfiguratorName~|ReportField=CurrentDate~|ReportField=CurrentTime~|ReportField=Date~|ReportField=DocumentFullPathAndName~|ReportField=DocumentName~|ReportField=DocumentNumber~1|ReportField=DrawnBy~|ReportField=Engineer~|ReportField=ImagePath~|ReportField=IsUserConfigurable~|ReportField=ModifiedDate~|ReportField=Organization~|ReportField=ProjectName~|ReportField=Revision~|ReportField=Rule~|ReportField=SheetNumber~1|ReportField=SheetTotal~8|ReportField=Time~|ReportField=Title~Top Level|ReportField=VersionControl_RevNumber~|ReportField=DataSourceFileName~miStepper.PrjPcb|ReportField=DataSourceFullPath~C:\00_Projects\02_Hephaestus\miStepper\20_Electronics\miStepper.PrjPcb
+Cap Semi|Capacitor (Semiconductor SIM Model)|C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C19, C20, C21, C22|CAPC1608X06N (0603)|Cap Semi|15
+Cap Semi|Capacitor (Semiconductor SIM Model)|C12, C14, C15, C16, C17, C18, C23_A, C23_C, C24_A, C24_C, C25|CAPC3216X06N (1206)|Cap Semi|11
+Cap Pol|Polarized Capacitor (Surface Mount)|C13|CAPAE7066X77M|Cap Pol|1
+Schottky Diode|Schottky Rectifier|D1|SODFL350X115-2N|Diode|1
+ST-LINK_USART|Header, 8-Pin|JP1|MHDR1X8|MHDR1X8|1
+JST PH Series, 2mm Pitch 6 Way 1 Row Right Angle PCB Header, Solder Termination, 2A   Source:  Datasheet|Custom header for miStepper|JP2|S6B-PH-SM4-TB(LF)(SN)|miStepper-Connector|1
+NEMA17|Stepper Motor|JP3|S4B-PH-SM4-TB(LF)(SN)|NEMA17|1
+MC33873|Motor|JP4|JP1Y|MC33873|1
+600R @ 100MHz|Inductor with ferrite bead|L1|INDC1608X06N|Ferrite Bead|1
+NMOS-2|N-Channel Power MOSFET|Q1|SOT230P700X180-4N|NMOS-2|1
+Res|Resistor|R1, R2, R3, R4, R5, R6, R7, R8, R9, R17, R18, R19, R20|RESC1608X06N (0603)|Res|13
+Res|Resistor|R10, R11, R12, R13, R14, R15, R16, R21_A, R21_C, RS1_A, RS1_C|RESC2012X06N (0805)|Res|11
+Option_Res|Resistor|SB1|RESC1608X06N (0603)|Option_Resistor|1
+STM32L431CC|STM32 ARM-based 32-bit MCU with 32 Kbytes Flash, 48-pin LQFP, Industrial Temperature|U1|LQFP48_L|STM32L431CC|1
+SN65HVD233|3.3V CAN Bus Transceiver|U2|SOIC127P600X175-8N|SN65HVD23x|1
+STSPIN820|Stepper IC|U3|QFN50P400X400X110-25N|STSPIN820|1
+AD7415ARTZ-1500RL7|I2C Temperature Sensor|U4, U7|SOT95P280X145-5N|AD7415ARTZ-1500RL7|2
+GY-BME280 BREAKOUT||U5, U6|GY-BME280 BREAKOUT|GY-BME280 BREAKOUT|2
+CS30xL|High side current sense high voltage op amp|U8_A, U8_C|SOT95P280X145-5N|CS30xL|2
+AS5047D||U9|TSSOP14|AS5047D|1

@@ -5,18 +5,19 @@
 # Include the git ignore file, as want this for all repositories
 !.gitignore
 !README.md
+!_image
 
-# Allow access to the Electronics folder
+# Global ignore entries
+*.OutputStatus
+Status Report.txt
+
+# Allow access to the Electronics folder, and include file at this level
+# Excluding Pcb designs (as caught in Gerber)
+#  Ignore sub-folders, apart from Outputs
 !20_Electronics
-20_Electronics/*
-!20_Electronics/*.brd
-!20_Electronics/*.sch
-!20_Electronics/*.xls[x]
-
-!20_Electronics/Archieve
-
-
-
+20_Electronics/*/
+!20_Electronics/Outputs
+20_Electronics/*.SWPcbDoc
 
 # Allow access to the Software folder
 # However only allow miStepper.ioc, Embed (all subs), 'Src/main.cpp' and 'Inc/main.h' to be
