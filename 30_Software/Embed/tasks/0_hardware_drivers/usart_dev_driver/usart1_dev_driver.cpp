@@ -136,13 +136,15 @@ void vUSART1DeviceHAL(void const * argument) {
         _usart1_dev::_interfaces::stepper(&usart_protocol);
         _usart1_dev::_interfaces::usart1(&usart_protocol);
 
-        if ( (usart_protocol.mode & miStepperUSART::kreset_packetcount) != 0 ) {
+        if ( (usart_protocol.reqt_mode & miStepperUSART::kreset_packetcount) != 0 ) {
             usart_protocol.packet_count = 0;
 
-            usart_protocol.mode &= ~(miStepperUSART::kreset_packetcount);
+            usart_protocol.reqt_mode &= ~(miStepperUSART::kreset_packetcount);
         }
 
-        if ( (usart_protocol.mode & miStepperUSART::kenable_transmit) != 0 ) {
+        _usart1_dev::_interfaces::userControl(&usart_protocol);
+
+        if ( (usart_protocol.reqt_mode & miStepperUSART::kenable_transmit) != 0 ) {
             usart_protocol.miStepperOut();
 
             usart1_device.intWrtePacket(&usart_protocol.message_out.pa[0],
@@ -150,7 +152,7 @@ void vUSART1DeviceHAL(void const * argument) {
                                         &wrte_back_fault,
                                         &count_wrte_back);
 
-            usart_protocol.mode &= ~(miStepperUSART::kenable_transmit);
+            usart_protocol.reqt_mode &= ~(miStepperUSART::kenable_transmit);
             usart_protocol.packet_count++;     // Increase packet counter
         }
 
