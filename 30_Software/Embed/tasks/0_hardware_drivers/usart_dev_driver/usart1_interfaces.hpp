@@ -74,5 +74,7 @@ void    usart1(miStepperUSART   *mistepper_handle);
  * ready for transmission.
  */
 
+void    userControl(miStepperUSART   *mistepper_handle);
+
 }
 #endif /* USART1_INTERFACES_HPP_ */

@@ -162,6 +162,23 @@ void    usart1(miStepperUSART   *mistepper_handle) {
                 _ihal::_itimer::timeStates(_ihal::TimedTasks::kUSART1);
 }
 
+/**
+  * @brief:  If the interface control has been enabled, then this function will trigger the
+  *          requested tasks
+  * @param:  miStepperUSART pointer
+  * @retval: None (void output)
+  */
+void    userControl(miStepperUSART   *mistepper_handle) {
+    if ( (mistepper_handle->reqt_mode & miStepperUSART::kenable_interface) != 0 ) {
+        _ihal::pushValue(&_ihal::_ifan::fan_demand, mistepper_handle->reqt_fan_demand);
+
+    }
+    else {
+        _ihal::pushValue(&_ihal::_ifan::fan_demand, 0.00f);
+
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**************************************************************************************************
  * ===============================================================================================
