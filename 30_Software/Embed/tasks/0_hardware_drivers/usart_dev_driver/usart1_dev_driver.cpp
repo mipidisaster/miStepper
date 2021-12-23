@@ -60,8 +60,8 @@ namespace _usart1_dev {
 static UARTDMAPeriph *lc_handle;        // Pointer to the USART1 class handle, for interrupt use
 static uint8_t      comm_buff[2][_param::kbuff_size]    = { 0 };
 
-static UARTPeriph::Form form[_param::kform_size]        = { 0 };
-
+static UARTPeriph::Form  form[2][_param::kform_size]    = { 0 };
+//#error "The above has been modified this needs to be checked at next run"
 /**************************************************************************************************
  * Define any private function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -80,9 +80,9 @@ void vUSART1DeviceHAL(void const * argument) {
     // Create USART1 class
     // ===================
     UARTDMAPeriph   usart1_device(&huart1,
-            &_usart1_dev::form[_usart1_dev::_param::kwrte_loc], _usart1_dev::_param::kform_size,
-            &_usart1_dev::form[_usart1_dev::_param::kread_loc], _usart1_dev::_param::kform_size,
-            &hdma_usart1_rx, &hdma_usart1_tx);
+        &_usart1_dev::form[_usart1_dev::_param::kwrte_loc][0], _usart1_dev::_param::kform_size,
+        &_usart1_dev::form[_usart1_dev::_param::kread_loc][0], _usart1_dev::_param::kform_size,
+        &hdma_usart1_rx, &hdma_usart1_tx);
     _usart1_dev::lc_handle = &usart1_device;    // Link USART1Dev class to global pointer (for ISR)
 
     // Setup Communication buffer array
@@ -93,6 +93,8 @@ void vUSART1DeviceHAL(void const * argument) {
      *  The second entry is to be the data being READ from this embedded device
      */
     miStepperUSART usart_protocol(
+            miStepperUSART::DeviceSource::kmiStepper,
+
             &_usart1_dev::comm_buff[_usart1_dev::_param::kwrte_loc][0],
                                         _usart1_dev::_param::kbuff_size,
             &_usart1_dev::comm_buff[_usart1_dev::_param::kread_loc][0],
@@ -122,9 +124,10 @@ void vUSART1DeviceHAL(void const * argument) {
     for(;;) {
         uint16_t cal_task_period = _ihal::_itimer::toc(&previous_recorded_time);
 
-        usart_protocol.decodeMessageIN(&usart1_device,
-                                       &read_back_fault,
-                                       &count_read_back);
+        usart1_device.readGenBufferLock(&usart_protocol.message_in,
+                                        &read_back_fault,
+                                        &count_read_back);
+        usart_protocol.decodeMessage();
 
         _usart1_dev::_interfaces::spi1(&usart_protocol);
         _usart1_dev::_interfaces::i2c1(&usart_protocol);
@@ -140,9 +143,12 @@ void vUSART1DeviceHAL(void const * argument) {
         }
 
         if ( (usart_protocol.mode & miStepperUSART::kenable_transmit) != 0 ) {
-            usart_protocol.sendEncodeMessageOUT(&usart1_device,
-                                                &wrte_back_fault,
-                                                &count_wrte_back);
+            usart_protocol.miStepperOut();
+
+            usart1_device.intWrtePacket(&usart_protocol.message_out.pa[0],
+                                        usart_protocol.message_out.input_pointer,
+                                        &wrte_back_fault,
+                                        &count_wrte_back);
 
             usart_protocol.mode &= ~(miStepperUSART::kenable_transmit);
             usart_protocol.packet_count++;     // Increase packet counter

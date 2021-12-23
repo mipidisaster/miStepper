@@ -61,8 +61,8 @@ namespace _usart1_dev::_interfaces {
   * @retval: None (void output)
   */
 void    spi1(miStepperUSART     *mistepper_handle) {
-    mistepper_handle->angular_position              = *(uint32_t *)
-                    &_ihal::_ispi1::ang_pos_raw.content.data;
+    mistepper_handle->angular_position              = (float)
+                    _ihal::_ispi1::ang_pos_raw.content.data;
 
     mistepper_handle->spi1_fault                    = (uint8_t) _ihal::_ispi1::comm_flt.content;
     mistepper_handle->angle_sensor_spi_fault        = (uint8_t)
@@ -83,8 +83,8 @@ void    spi1(miStepperUSART     *mistepper_handle) {
   * @retval: None (void output)
   */
 void    i2c1(miStepperUSART     *mistepper_handle) {
-    mistepper_handle->internal_temperature_top      = *(uint32_t *)
-                    &_ihal::_ii2c1::internal_top_temp_raw.content.data;
+    mistepper_handle->internal_temperature_top      = (float)
+                    _ihal::_ii2c1::internal_top_temp_raw.content.data;
 
     mistepper_handle->i2c1_fault                    = (uint8_t) _ihal::_ii2c1::comm_flt.content;
     mistepper_handle->top_temp_sensor_i2c_fault     = (uint8_t)
@@ -105,20 +105,20 @@ void    i2c1(miStepperUSART     *mistepper_handle) {
   * @retval: None (void output)
   */
 void    adc1(miStepperUSART     *mistepper_handle) {
-    mistepper_handle->internal_voltage_reference    = *(uint32_t *)
-                &_ihal::_iadc1::internal_voltage_reference.content;
-    mistepper_handle->cpu_temperature               = *(uint32_t *)
-                &_ihal::_iadc1::cpu_temperature.content;
-    mistepper_handle->fan_voltage                   = *(uint32_t *)
-                &_ihal::_iadc1::fan_voltage.content;
-    mistepper_handle->fan_current                   = *(uint32_t *)
-                &_ihal::_iadc1::fan_current.content;
-    mistepper_handle->stepper_voltage               = *(uint32_t *)
-                &_ihal::_iadc1::stepper_voltage.content;
-    mistepper_handle->stepper_current               = *(uint32_t *)
-                &_ihal::_iadc1::stepper_current.content;
-    mistepper_handle->conversion_fault              = *(uint32_t *)
-                &_ihal::_iadc1::conversion_flt.content;
+    mistepper_handle->internal_voltage_reference    = (float)
+                _ihal::_iadc1::internal_voltage_reference.content.data;
+    mistepper_handle->cpu_temperature               = (float)
+                _ihal::_iadc1::cpu_temperature.content.data;
+    mistepper_handle->fan_voltage                   = (float)
+                _ihal::_iadc1::fan_voltage.content.data;
+    mistepper_handle->fan_current                   = (float)
+                _ihal::_iadc1::fan_current.content.data;
+    mistepper_handle->stepper_voltage               = (float)
+                _ihal::_iadc1::stepper_voltage.content.data;
+    mistepper_handle->stepper_current               = (float)
+                _ihal::_iadc1::stepper_current.content.data;
+    mistepper_handle->conversion_fault              = (uint8_t)
+                _ihal::_iadc1::conversion_flt.content;
 
     mistepper_handle->adc1_task_time                = (uint32_t)
                 _ihal::_itimer::timeStates(_ihal::TimedTasks::kADC1);
@@ -131,8 +131,8 @@ void    adc1(miStepperUSART     *mistepper_handle) {
   * @retval: None (void output)
   */
 void    fan(miStepperUSART      *mistepper_handle) {
-    mistepper_handle->fan_demand                    = *(uint32_t *)
-                &_ihal::_ifan::fan_demand.content;
+    mistepper_handle->fan_demand                    = (float)
+                _ihal::_ifan::fan_demand.content;
     mistepper_handle->fan_task_time                 = (uint32_t)
                 _ihal::_itimer::timeStates(_ihal::TimedTasks::kFAN);
 }
