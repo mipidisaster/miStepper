@@ -95,7 +95,7 @@ void vDAC1DeviceHAL(void const * argument) {
 
         if (first_pass == 1) {                  // On first pass of this task, it owns its input
                                                 // as well
-            _ihal::pushValue(&_ihal::_idac1::stepper_ic_limit_demand, 0.00f);
+            _ihal::pushValue(&_ihal::_idac1::stepper_ic_limit_demand, 0.25f);
         }
 
         float current_demand = _ihal::getValue(&_ihal::_idac1::stepper_ic_limit_demand);
