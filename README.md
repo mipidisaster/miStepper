@@ -19,6 +19,7 @@ This library makes use of an extra repository - ['milibrary'](https://github.com
 # Build Tree
 ![build tree](/_image/Build_tree.png)
 
+develop
 v1.1.0
 * Changes made to the software to incorporate the motor HAL - Fan/Stepper, as well as changes to the USART interface (making it common with the 'miStepper_ROS' repository
 * Issues [#4](https://github.com/mipidisaster/miStepper/issues/4) and [#5](https://github.com/mipidisaster/miStepper/issues/5) fixed
