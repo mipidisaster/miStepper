@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        stepper_driver.h
+ * @file        fan_driver.hpp
  * @author      Thomas
- * @brief       Header file for Stepper Motor task handler
+ * @brief       Header file for Fan Motor task handler
  **************************************************************************************************
   @ attention
 
@@ -11,16 +11,16 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * This is the main header file for the STEPPER driver, and will manage the setting up of the
- * class, and extra GPIOs connected to the IC controlling the Stepper.
+ * This is the main header file for the FAN driver, and will manage the setting up of the Timer,
+ * and the PWM for this MOSFET.
  *
  * The files will be structured as such:
- *    "stepper_driver"              -> This will include the main task which will be looped
- *    "stepper_driver_parameters"   -> This will include constants, etc. which are used within the
- *                                     STEPPER task
+ *    "fan_driver"                  -> This will include the main task which will be looped
+ *    "fan_driver_parameters"       -> This will include constants, etc. which are used within the
+ *                                     FAN task
  *************************************************************************************************/
-#ifndef STEPPER_DRIVER_H_
-#define STEPPER_DRIVER_H_
+#ifndef FAN_DRIVER_H_
+#define FAN_DRIVER_H_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -44,12 +44,9 @@
                                         // for GPIO signals
 #include "stm32l4xx_hal.h"              // Include the HAL library
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 //=================================================================================================
 
+namespace _motor::_fan {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -72,12 +69,10 @@ extern "C" {
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void vSTPMotorHAL(void const * argument);   // "main" task for Stepper Motor handle
+void setup(void);                       // Configure the FAN Timer(s)/PWM(s)
+void firstpass(void);                   // Things to do only ONCE at initial pass through
 
-void DMA1_Channel7_IRQHandler(void);        // This task file also includes the prototype used to
-                                            // handle Interrupt Service Calls
+void updatespeed(float new_speed);      // Update the FAN speed to new demand
 
-#ifdef __cplusplus
 }
-#endif
-#endif /* STEPPER_DRIVER_H_ */
+#endif /* FAN_DRIVER_H_ */

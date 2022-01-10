@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        fan_driver_parameters.hpp
+ * @file        stepper_driver_parameters.hpp
  * @author      Thomas
- * @brief       Header file for FAN parameter(s)
+ * @brief       Header file for STEPPER parameter(s)
  **************************************************************************************************
   @ attention
 
@@ -11,11 +11,11 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * Parameters/constants specific to the FAN device. These are expected not to change during
+ * Parameters/constants specific for the STEPPER device. These are expected not to change during
  * run-time.
  *************************************************************************************************/
-#ifndef FAN_DRIVER_PARAMETERS_HPP_
-#define FAN_DRIVER_PARAMETERS_HPP_
+#ifndef STEPPER_DRIVER_PARAMETERS_HPP_
+#define STEPPER_DRIVER_PARAMETERS_HPP_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -39,7 +39,7 @@
 
 //=================================================================================================
 
-namespace _fan::_param {
+namespace _stepper::_param {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,19 +50,7 @@ namespace _fan::_param {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-inline constexpr float      kpwm_width      = 999.0L;
-
-inline constexpr uint8_t    ktask_rate      = 100;    // Task rate of the FAN task
-/** READ ME BEFORE CHANGING 'ktask_rate'
-  *
-  * Currently the counter used to observe the task duration and periods is based upon TIM15 (also
-  * used for Fan PWM), which currently set to:
-  *     fcpu input          =   80MHz
-  *     TIM15 Prescaler     =   3       = 80MHz  / (3    + 1)  = 20MHz          50ns
-  *     Count Period        =   999     - 20MHz  / (999  + 1)  = 20KHz          50us
-  *                                                                             0.05ms
-  *     Therefore there are 20 counts to 1ms
-  ************************************************************************************************/
+// None
 
 /**************************************************************************************************
  * Exported types
@@ -77,4 +65,4 @@ inline constexpr uint8_t    ktask_rate      = 100;    // Task rate of the FAN ta
 // None
 
 }
-#endif /* TASKS_0_HARDWARE_DRIVERS_FAN_DRIVER_FAN_DRIVER_PARAMETERS_HPP_ */
+#endif /* STEPPER_DRIVER_PARAMETERS_HPP_ */

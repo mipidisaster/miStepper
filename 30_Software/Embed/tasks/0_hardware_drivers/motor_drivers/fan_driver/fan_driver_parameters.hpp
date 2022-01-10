@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        usart1_interfaces.hpp
+ * @file        fan_driver_parameters.hpp
  * @author      Thomas
- * @brief       Header file for USART interfaces (to the miStepperUSART class)
+ * @brief       Header file for FAN parameter(s)
  **************************************************************************************************
   @ attention
 
@@ -11,11 +11,11 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * Script to contain the linkage of the external (to USART function) parameters to the
- * miStepperUSART class.
+ * Parameters/constants specific to the FAN device. These are expected not to change during
+ * run-time.
  *************************************************************************************************/
-#ifndef USART1_INTERFACES_HPP_
-#define USART1_INTERFACES_HPP_
+#ifndef FAN_DRIVER_PARAMETERS_HPP_
+#define FAN_DRIVER_PARAMETERS_HPP_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -35,13 +35,11 @@
 
 // Project Libraries
 // -----------------
-#include "FileIndex.h"
-//~~~~~~~~~~~~~~~~~~~~
-#include FilIndMStpUARTHD               // Include the miStepper USART protocol class
+// None
 
 //=================================================================================================
 
-namespace _usart1_dev::_interfaces {
+namespace _motor::_fan::_param {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -52,7 +50,7 @@ namespace _usart1_dev::_interfaces {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-// None
+inline constexpr float      kpwm_width      = 999.0L;
 
 /**************************************************************************************************
  * Exported types
@@ -64,17 +62,7 @@ namespace _usart1_dev::_interfaces {
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void    spi1(miStepperUSART     *mistepper_handle);
-void    i2c1(miStepperUSART     *mistepper_handle);
-void    adc1(miStepperUSART     *mistepper_handle);
-void    fan(miStepperUSART      *mistepper_handle);
-void    stepper(miStepperUSART  *mistepper_handle);
-void    usart1(miStepperUSART   *mistepper_handle);
-/* Individual functions to be called to connect the _ihal parameters to the miStepperUSART class,
- * ready for transmission.
- */
-
-void    userControl(miStepperUSART   *mistepper_handle);
+// None
 
 }
-#endif /* USART1_INTERFACES_HPP_ */
+#endif /* TASKS_0_HARDWARE_DRIVERS_FAN_DRIVER_FAN_DRIVER_PARAMETERS_HPP_ */

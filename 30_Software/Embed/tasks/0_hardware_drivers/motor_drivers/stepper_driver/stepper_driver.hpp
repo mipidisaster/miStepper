@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        usart1_interfaces.hpp
+ * @file        stepper_driver.hpp
  * @author      Thomas
- * @brief       Header file for USART interfaces (to the miStepperUSART class)
+ * @brief       Header file for Stepper Motor task handler
  **************************************************************************************************
   @ attention
 
@@ -11,11 +11,16 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * Script to contain the linkage of the external (to USART function) parameters to the
- * miStepperUSART class.
+ * This is the main header file for the STEPPER driver, and will manage the setting up of the
+ * class, and extra GPIOs connected to the IC controlling the Stepper.
+ *
+ * The files will be structured as such:
+ *    "stepper_driver"              -> This will include the main task which will be looped
+ *    "stepper_driver_parameters"   -> This will include constants, etc. which are used within the
+ *                                     STEPPER task
  *************************************************************************************************/
-#ifndef USART1_INTERFACES_HPP_
-#define USART1_INTERFACES_HPP_
+#ifndef STEPPER_DRIVER_H_
+#define STEPPER_DRIVER_H_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -23,7 +28,7 @@
  *************************************************************************************************/
 // C System Header(s)
 // ------------------
-#include <stdint.h>
+// None
 
 // C++ System Header(s)
 // --------------------
@@ -35,13 +40,13 @@
 
 // Project Libraries
 // -----------------
-#include "FileIndex.h"
-//~~~~~~~~~~~~~~~~~~~~
-#include FilIndMStpUARTHD               // Include the miStepper USART protocol class
+#include "main.h"                       // Include main header file, as this contains the defines
+                                        // for GPIO signals
+#include "stm32l4xx_hal.h"              // Include the HAL library
 
 //=================================================================================================
 
-namespace _usart1_dev::_interfaces {
+namespace _motor::_stepper {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,17 +69,13 @@ namespace _usart1_dev::_interfaces {
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void    spi1(miStepperUSART     *mistepper_handle);
-void    i2c1(miStepperUSART     *mistepper_handle);
-void    adc1(miStepperUSART     *mistepper_handle);
-void    fan(miStepperUSART      *mistepper_handle);
-void    stepper(miStepperUSART  *mistepper_handle);
-void    usart1(miStepperUSART   *mistepper_handle);
-/* Individual functions to be called to connect the _ihal parameters to the miStepperUSART class,
- * ready for transmission.
- */
+void setup(void);                       // Configure the Stepper class
+void firstpass(void);                   // Things to do only ONCE at initial pass through
 
-void    userControl(miStepperUSART   *mistepper_handle);
+void updatespeed(uint8_t enable, uint8_t microstep, uint8_t direction, uint16_t frequency);
+    // Update the Stepper speed to new demand
+
+void calposition(void);
 
 }
-#endif /* USART1_INTERFACES_HPP_ */
+#endif /* STEPPER_DRIVER_H_ */

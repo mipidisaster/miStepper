@@ -1,7 +1,7 @@
 /**************************************************************************************************
  * @file        ifan_hal.hpp
  * @author      Thomas
- * @brief       HAL interface layer for the FAN task (header)
+ * @brief       HAL interface layer for the Fan task (header)
  **************************************************************************************************
   @ attention
 
@@ -50,7 +50,7 @@ namespace _ihal::_ifan {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-extern Semaphore< float > fan_demand;
+extern Semaphore< float > demand;
 
 /**************************************************************************************************
  * Exported types
@@ -65,4 +65,4 @@ extern Semaphore< float > fan_demand;
 void interfaceInitialise(void);         // Initialise all ispi parameters
 
 }
-#endif /* TASKS_1_HARDWARE_ARBITRATION_LAYER_IFAN_HAL_HPP_ */
+#endif /* IFAN_HAL_HPP_ */

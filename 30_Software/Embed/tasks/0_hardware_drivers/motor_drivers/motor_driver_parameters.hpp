@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        fan_driver.h
+ * @file        motor_driver_parameters.hpp
  * @author      Thomas
- * @brief       Header file for Fan Motor task handler
+ * @brief       Header file for Motor task
  **************************************************************************************************
   @ attention
 
@@ -11,16 +11,11 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * This is the main header file for the FAN driver, and will manage the setting up of the Timer,
- * and the PWM for this MOSFET.
- *
- * The files will be structured as such:
- *    "fan_driver"                  -> This will include the main task which will be looped
- *    "fan_driver_parameters"       -> This will include constants, etc. which are used within the
- *                                     FAN task
+ * Parameters/constants specific to the MOTOR generic task handler. There are expected not to
+ * change during run-time.
  *************************************************************************************************/
-#ifndef FAN_DRIVER_H_
-#define FAN_DRIVER_H_
+#ifndef MOTOR_DRIVER_PARAMETERS_HPP_
+#define MOTOR_DRIVER_PARAMETERS_HPP_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -28,7 +23,7 @@
  *************************************************************************************************/
 // C System Header(s)
 // ------------------
-// None
+#include <stdint.h>
 
 // C++ System Header(s)
 // --------------------
@@ -40,16 +35,11 @@
 
 // Project Libraries
 // -----------------
-#include "main.h"                       // Include main header file, as this contains the defines
-                                        // for GPIO signals
-#include "stm32l4xx_hal.h"              // Include the HAL library
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+// None
 
 //=================================================================================================
 
+namespace _motor::_param {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +50,29 @@ extern "C" {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-// None
+inline constexpr uint8_t    ktask_rate      = 100;    // Task rate of the FAN task
+/** READ ME BEFORE CHANGING 'ktask_rate'
+  *
+  * Currently the counter used to observe the task duration and periods is based upon TIM15 (also
+  * used for Fan PWM), which currently set to:
+  *     fcpu input          =   80MHz
+  *     TIM15 Prescaler     =   3       = 80MHz  / (3    + 1)  = 20MHz          50ns
+  *     Count Period        =   999     - 20MHz  / (999  + 1)  = 20KHz          50us
+  *                                                                             0.05ms
+  *     Therefore there are 20 counts to 1ms
+  ************************************************************************************************/
+/** READ ME BEFORE CHANGING 'ktask_rate'
+  *
+  * Currently the TIMER linked to the STEPPER (TIM1) is configured to give a resolution of 1us
+  * (Prescaler = 79 -> 1MHz). With the size of hardware register limited to 16bits (65535), this
+  * gives the slowest STEP pulse train of ~65ms (15Hz).
+  * So the FAN HAL task cannot go any faster than this, if slowest speeds are expected.
+  * Therefore the task, is limited to allow a minimum speed of HALF the iteration speed (software
+  * limited at compilation time).
+  *
+  * With the current iteration rate of 100ms, this gives the slowest STEP pulse train of 50ms
+  * (20Hz).
+  ************************************************************************************************/
 
 /**************************************************************************************************
  * Exported types
@@ -72,9 +84,7 @@ extern "C" {
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-void vFANMotorHAL(void const * argument);   // "main" task for FAN handle
+// None
 
-#ifdef __cplusplus
 }
-#endif
-#endif /* FAN_DRIVER_H_ */
+#endif /* MOTOR_DRIVER_PARAMETERS_HPP_ */

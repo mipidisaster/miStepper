@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        stepper_driver_parameters.hpp
+ * @file        istepper_hal.hpp
  * @author      Thomas
- * @brief       Header file for STEPPER parameter(s)
+ * @brief       HAL interface layer for the Stepper task (header)
  **************************************************************************************************
   @ attention
 
@@ -11,11 +11,11 @@
 /**************************************************************************************************
  * How to use
  * ----------
- * Parameters/constants specific for the STEPPER device. These are expected not to change during
- * run-time.
+ * Header includes all the parameters that are output of the FAN Task.
+ * Function - interfaceInitialise() is to be called prior to signals are used correctly.
  *************************************************************************************************/
-#ifndef STEPPER_DRIVER_PARAMETERS_HPP_
-#define STEPPER_DRIVER_PARAMETERS_HPP_
+#ifndef ISTEPPER_HAL_HPP_
+#define ISTEPPER_HAL_HPP_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -35,11 +35,11 @@
 
 // Project Libraries
 // -----------------
-// None
+#include "tasks/1_hardware_arbitration_layer/ihal_management.hpp"
 
 //=================================================================================================
 
-namespace _stepper::_param {
+namespace _ihal::_istepper {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,19 +50,12 @@ namespace _stepper::_param {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-inline constexpr uint8_t    ktask_rate      = 100;    // Task rate of the STEPPER task
-/** READ ME BEFORE CHANGING 'FAN___HAL_Time'
-  *
-  * Currently the TIMER linked to the STEPPER (TIM1) is configured to give a resolution of 1us
-  * (Prescaler = 79 -> 1MHz). With the size of hardware register limited to 16bits (65535), this
-  * gives the slowest STEP pulse train of ~65ms (15Hz).
-  * So the FAN HAL task cannot go any faster than this, if slowest speeds are expected.
-  * Therefore the task, is limited to allow a minimum speed of HALF the iteration speed (software
-  * limited at compilation time).
-  *
-  * With the current iteration rate of 100ms, this gives the slowest STEP pulse train of 50ms
-  * (20Hz).
-  ************************************************************************************************/
+extern Semaphore< uint8_t > enable;
+extern Semaphore< uint8_t > microstep;
+extern Semaphore< uint8_t > direction;
+extern Semaphore<uint16_t > frequency;
+
+extern Semaphore<uint32_t > calc_position;
 
 /**************************************************************************************************
  * Exported types
@@ -74,7 +67,7 @@ inline constexpr uint8_t    ktask_rate      = 100;    // Task rate of the STEPPE
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-// None
+void interfaceInitialise(void);         // Initialise all ispi parameters
 
 }
-#endif /* STEPPER_DRIVER_PARAMETERS_HPP_ */
+#endif /* ISTEPPER_HAL_HPP_ */
