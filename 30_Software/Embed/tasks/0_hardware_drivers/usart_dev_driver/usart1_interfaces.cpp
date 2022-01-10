@@ -31,7 +31,9 @@
 #include "tasks/1_hardware_arbitration_layer/ispi_hal.hpp"
 #include "tasks/1_hardware_arbitration_layer/ii2c_hal.hpp"
 #include "tasks/1_hardware_arbitration_layer/ianalog_hal.hpp"
+
 #include "tasks/1_hardware_arbitration_layer/ifan_hal.hpp"
+#include "tasks/1_hardware_arbitration_layer/istepper_hal.hpp"
 
 #include "FileIndex.h"
 //~~~~~~~~~~~~~~~~~~~~
@@ -132,7 +134,7 @@ void    adc1(miStepperUSART     *mistepper_handle) {
   */
 void    fan(miStepperUSART      *mistepper_handle) {
     mistepper_handle->fan_demand                    = (float)
-                _ihal::_ifan::fan_demand.content;
+                _ihal::_ifan::demand.content;
     mistepper_handle->fan_task_time                 = (uint32_t)
                 _ihal::_itimer::timeStates(_ihal::TimedTasks::kFAN);
 }
@@ -144,9 +146,21 @@ void    fan(miStepperUSART      *mistepper_handle) {
   * @retval: None (void output)
   */
 void    stepper(miStepperUSART  *mistepper_handle) {
-    //mistepper_handle->stepper_frequency            =
-    //mistepper_handle->stepper_gear                 =
-    //mistepper_handle->stepper_calc_position        =
+    mistepper_handle->stepper_frequency            = (uint16_t)
+                _ihal::_istepper::frequency.content;
+
+    uint8_t gear = _ihal::_istepper::microstep.content  & 0x07;
+    uint8_t dir  = _ihal::_istepper::direction.content  & 0x01;
+    uint8_t enb  = _ihal::_istepper::enable.content     & 0x01;
+
+    uint16_t stepper_state = enb;
+    stepper_state |= (uint16_t) (dir << 1);
+    stepper_state |= (uint16_t) (gear << 2);
+
+    mistepper_handle->stepper_state                 = (uint16_t) stepper_state;
+
+    mistepper_handle->stepper_calc_position        = (uint32_t)
+                _ihal::_istepper::calc_position.content;
     mistepper_handle->stepper_task_time             = (uint32_t)
                 _ihal::_itimer::timeStates(_ihal::TimedTasks::kSTEPPER);
 }
@@ -170,11 +184,20 @@ void    usart1(miStepperUSART   *mistepper_handle) {
   */
 void    userControl(miStepperUSART   *mistepper_handle) {
     if ( (mistepper_handle->reqt_mode & miStepperUSART::kenable_interface) != 0 ) {
-        _ihal::pushValue(&_ihal::_ifan::fan_demand, mistepper_handle->reqt_fan_demand);
+        _ihal::pushValue(&_ihal::_ifan::demand,         mistepper_handle->reqt_fan_demand);
 
+        _ihal::pushValue(&_ihal::_istepper::enable,     mistepper_handle->reqt_stepper_enable);
+        _ihal::pushValue(&_ihal::_istepper::direction,  mistepper_handle->reqt_stepper_direction);
+        _ihal::pushValue(&_ihal::_istepper::microstep,  mistepper_handle->reqt_stepper_gear);
+        _ihal::pushValue(&_ihal::_istepper::frequency,  mistepper_handle->reqt_stepper_frequency);
     }
     else {
-        _ihal::pushValue(&_ihal::_ifan::fan_demand, 0.00f);
+        _ihal::pushValue(&_ihal::_ifan::demand, 0.00f);
+
+        _ihal::pushValue(&_ihal::_istepper::enable,     (uint8_t)   0);
+        _ihal::pushValue(&_ihal::_istepper::direction,  (uint8_t)   0);
+        _ihal::pushValue(&_ihal::_istepper::microstep,  (uint8_t)   0);
+        _ihal::pushValue(&_ihal::_istepper::frequency,  (uint16_t)  0);
 
     }
 }
