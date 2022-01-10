@@ -1,7 +1,7 @@
 /**************************************************************************************************
  * @file        ifan_hal.cpp
  * @author      Thomas
- * @brief       << Manually Entered >>
+ * @brief       HAL interface layer for the Fan task (source)
  **************************************************************************************************
   @ attention
 
@@ -32,7 +32,7 @@ namespace _ihal::_ifan {
  * Define any private variables
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-Semaphore< float > fan_demand = {
+Semaphore< float > demand = {
         .content = { 0.00 },
         .lock    = LockState::kLocked
 };
@@ -51,8 +51,8 @@ Semaphore< float > fan_demand = {
   * @retval: void
   */
 void interfaceInitialise(void) {
-    fan_demand.content      = -999.0f;
-    fan_demand.lock         = LockState::kUnlocked;
+    demand.content      = -999.0f;
+    demand.lock         = LockState::kUnlocked;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,5 +62,5 @@ void interfaceInitialise(void) {
  * ===============================================================================================
  *************************************************************************************************/
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
+// None
 }
