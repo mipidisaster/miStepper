@@ -35,9 +35,7 @@
 #include "tasks/1_hardware_arbitration_layer/ifan_hal.hpp"
 #include "tasks/1_hardware_arbitration_layer/istepper_hal.hpp"
 
-#include "FileIndex.h"
-//~~~~~~~~~~~~~~~~~~~~
-#include FilIndMStpUARTHD               // Include the miStepper USART protocol class
+#include "mistepper_driver/miStepperUSART.h"    // Header for miStepper UART interface
 
 //=================================================================================================
 

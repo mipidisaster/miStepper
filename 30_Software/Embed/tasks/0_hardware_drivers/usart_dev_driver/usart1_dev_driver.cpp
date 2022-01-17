@@ -37,13 +37,14 @@
 
 #include "tasks/1_hardware_arbitration_layer/itimer_hal.hpp"
 
+#include "mistepper_driver/miStepperUSART.h"    // Header for miStepper UART interface
+
 #include "FileIndex.h"
 //~~~~~~~~~~~~~~~~~~~~
 #include FilInd_GENBUF_TP               // Provide the template for the circular buffer class
 
 #include FilInd_USART__HD               // Include the USART Class handler
 #include FilIndUSARTDMAHD               // Include the USART DMA specific class
-#include FilIndMStpUARTHD               // Include the miStepper USART protocol class
 
 #include FilInd_DATMngrHD               // Provide the function set for Data Manipulation
 

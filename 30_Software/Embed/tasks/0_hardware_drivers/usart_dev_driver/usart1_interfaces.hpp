@@ -35,9 +35,7 @@
 
 // Project Libraries
 // -----------------
-#include "FileIndex.h"
-//~~~~~~~~~~~~~~~~~~~~
-#include FilIndMStpUARTHD               // Include the miStepper USART protocol class
+#include "mistepper_driver/miStepperUSART.h"    // Header for miStepper UART interface
 
 //=================================================================================================
 
