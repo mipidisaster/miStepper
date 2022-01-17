@@ -4,3 +4,9 @@
 [submodule "90_ROSStack/src/mistepper"]
 	path = 90_ROSStack/src/mistepper
 	url = https://github.com/mipidisaster/miStepper_ROS.git
+[submodule "90_ROSStack/mistepper"]
+	path = 90_ROSStack/mistepper
+	url = https://github.com/mipidisaster/miStepper_ROS.git
+[submodule "90_ROSStack/milibrary"]
+	path = 90_ROSStack/milibrary
+	url = https://github.com/mipidisaster/miLibrary.git
