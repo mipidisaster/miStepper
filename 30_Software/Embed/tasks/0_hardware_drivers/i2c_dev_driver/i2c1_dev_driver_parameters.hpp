@@ -49,19 +49,24 @@ namespace _i2c1_dev::_param {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-inline constexpr uint16_t   kform_size      = 16;   // Queue size of the I2C1 class forms
-inline constexpr uint8_t    kbuff_size      = 64;   // Queue size of the I2C1 data transmit
-                                                    // and receive buffer
+// Task rate of SPI main()
+inline constexpr uint8_t    ktask_rate      = 5;        // Task rate of the I2C1 device
 
-inline constexpr uint8_t    kwrte_loc                   = 0;    // Array position for Write
-inline constexpr uint8_t    kread_top_temp_sensor       = 1;    // Array position for Read
-                                                                // (Top Temperature Sensor)
-inline constexpr uint8_t    kread_bottom_temp_sensor    = 2;    // Array position for Read
-                                                                // (Bottom Temperature Sensor)
+// Internal class form size(s)
+inline constexpr uint16_t   ki2c_form_size      = 16;   // Queue size of the I2C1 class forms
+inline constexpr uint8_t    kboard_form_depth   = 16;   // Queue size of the AD741x device(s)
+inline constexpr uint8_t    kmotor_form_depth   = 16;   // Queue size of the BME280 device(s)
 
+// Communication register size(s)
+inline constexpr uint8_t    kboard_buff_size    = 16;   // Register size(s) of the I2C1 data
+inline constexpr uint8_t    kmotor_buff_size    = 16;   // transmit and receive
 
-inline constexpr uint8_t    ktask_rate      = 5;    // Task rate of the I2C1 device
+// Fault threshold(s)
+inline constexpr uint8_t    kfault_count        = 6;    // Maximum number of no data, before faults
 
+//////
+inline constexpr uint8_t    kwrte_loc       = 0;        // Array position for Write
+inline constexpr uint8_t    kread_loc       = 1;        // Array position for Read
 /**************************************************************************************************
  * Exported types
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

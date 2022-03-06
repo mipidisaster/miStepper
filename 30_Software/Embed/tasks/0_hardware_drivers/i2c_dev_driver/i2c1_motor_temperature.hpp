@@ -1,7 +1,7 @@
 /**************************************************************************************************
- * @file        i2c1_board_temperature.hpp
+ * @file        i2c1_motor_temperature.hpp
  * @author      Thomas
- * @brief       Header file for I2C board temperature sensor
+ * @brief       Header file for I2C motor temperature sensor
  **************************************************************************************************
   @ attention
 
@@ -14,8 +14,8 @@
  * Script to contain the generation and handling of the internal (board) temperature sensor
  * connected to the I2C interface
  *************************************************************************************************/
-#ifndef I2C1_BOARD_TEMPERATURE_HPP_
-#define I2C1_BOARD_TEMPERATURE_HPP_
+#ifndef I2C1_MOTOR_TEMPERATURE_HPP_
+#define I2C1_MOTOR_TEMPERATURE_HPP_
 
 /**************************************************************************************************
  * Include all files that are needed to understand this header
@@ -40,11 +40,12 @@
 #include "FileIndex.h"
 //~~~~~~~~~~~~~~~~~~~~
 #include FilInd_I2CPe__HD               // Include the I2C class handler
-#include FilInd_AD741x_HD               // Include the device AD741x handler
+#include FilInd_BME280_HD               // Header for BME280 Device
+#include FilInd_BMEI2C_HD               // Header for the BME280 I2C interface
 
 //=================================================================================================
 
-namespace _i2c1_dev::_int_temp {
+namespace _i2c1_dev::_motor_temp {
 /**************************************************************************************************
  * Exported MACROS
  * ~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,13 +68,13 @@ namespace _i2c1_dev::_int_temp {
  * Exported function prototypes
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-AD741x  generateInternalTopTemperatureSensor(void);
-AD741x  generateInternalBottomTemperatureSensor(void);
+BME280I2C   generateMotorRightTemperatureSensor(void);
+BME280I2C   generateMotorLeftTemperatureSensor(void);
 
-void    manageTopTemperatureSensor(I2CPeriph *hi2c, AD741x *top_device,
-        _ihal::DevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> *CommState, uint8_t *first_pass);
-void    manageBottomTemperatureSensor(I2CPeriph *hi2c, AD741x *bottom_device,
-        _ihal::DevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> *CommState, uint8_t *first_pass);
+void    manageMotorRightTemperatureSensor(I2CPeriph *hi2c, BME280I2C *right_device,
+        _ihal::DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> *CommState, uint8_t *first_pass);
+void    manageMotorLeftTemperatureSensor(I2CPeriph *hi2c, BME280I2C *left_device,
+        _ihal::DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> *CommState, uint8_t *first_pass);
 
 }
-#endif /* I2C1_BOARD_TEMPERATURE_HPP_ */
+#endif /* I2C1_MOTOR_TEMPERATURE_HPP_ */

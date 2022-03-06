@@ -32,6 +32,7 @@
 
 #include "tasks/0_hardware_drivers/i2c_dev_driver/i2c1_dev_driver_parameters.hpp"
 #include "tasks/0_hardware_drivers/i2c_dev_driver/i2c1_board_temperature.hpp"
+#include "tasks/0_hardware_drivers/i2c_dev_driver/i2c1_motor_temperature.hpp"
 
 #include "tasks/1_hardware_arbitration_layer/ihal_management.hpp"
 
@@ -42,6 +43,8 @@
 //~~~~~~~~~~~~~~~~~~~~
 #include FilInd_I2CPe__HD               // Include the I2C class handler
 #include FilInd_AD741x_HD               // Include the device AD741x handler
+#include FilInd_BME280_HD               // Header for BME280 Device
+#include FilInd_BMEI2C_HD               // Header for the BME280 I2C interface
 
 //=================================================================================================
 
@@ -51,9 +54,8 @@ namespace _i2c1_dev {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 static I2CPeriph    *lc_handle;         // Pointer to the I2C1 class handle, for interrupt use
-static uint8_t      comm_buff[3][_param::kbuff_size]    = { 0 };
 
-static I2CPeriph::Form  form[_param::kform_size]        = { 0 };
+static I2CPeriph::Form  form[_param::ki2c_form_size]    = { 0 };
 
 /**************************************************************************************************
  * Define any private function prototypes
@@ -72,7 +74,7 @@ void vI2C1DeviceHAL(void const * argument) {
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
     // Create I2C1 class
     // =================
-    I2CPeriph   i2c1_device(&hi2c1, &_i2c1_dev::form[0], _i2c1_dev::_param::kform_size);
+    I2CPeriph   i2c1_device(&hi2c1, &_i2c1_dev::form[0], _i2c1_dev::_param::ki2c_form_size);
     _i2c1_dev::lc_handle = &i2c1_device;    // Link I2C1Dev class to global pointer (for ISR)
 
     // Setup I2C Connected Devices
@@ -82,6 +84,12 @@ void vI2C1DeviceHAL(void const * argument) {
 
     AD741x  bottom_temperature_sensor =
                                 _i2c1_dev::_int_temp::generateInternalBottomTemperatureSensor();
+
+    BME280I2C r_motor_temperature_sensor =
+                                _i2c1_dev::_motor_temp::generateMotorRightTemperatureSensor();
+
+    BME280I2C l_motor_temperature_sensor =
+                                _i2c1_dev::_motor_temp::generateMotorLeftTemperatureSensor();
 
 /*---------------------------[    Device Fault flag generation    ]---------------------------*/
     I2CPeriph::DevFlt   lc_i2c1_comm_flt = {I2CPeriph::DevFlt::kInitialised};
@@ -97,6 +105,20 @@ void vI2C1DeviceHAL(void const * argument) {
             .IdleCount  = 0,
 
             .DevFlt     = AD741x::DevFlt::kInitialised,
+            .ComFlt     = I2CPeriph::DevFlt::kInitialised
+    };
+
+    _ihal::DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> lc_r_motor_temp_sensor_comm_state = {
+            .IdleCount  = 0,
+
+            .DevFlt     = BME280::DevFlt::kInitialised,
+            .ComFlt     = I2CPeriph::DevFlt::kInitialised
+    };
+
+    _ihal::DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> lc_l_motor_temp_sensor_comm_state = {
+            .IdleCount  = 0,
+
+            .DevFlt     = BME280::DevFlt::kInitialised,
             .ComFlt     = I2CPeriph::DevFlt::kInitialised
     };
 
@@ -122,53 +144,81 @@ void vI2C1DeviceHAL(void const * argument) {
         uint16_t cal_task_period = _ihal::_itimer::toc(&previous_recorded_time);
 
         // Setup data communication with the top internal temperature sensor & read back data
-        _i2c1_dev::_int_temp::internalTemperatureSensorManagement(
+        // Will handle the connection to the HAL layer for the read parameter
+        _i2c1_dev::_int_temp::manageTopTemperatureSensor(
                            &i2c1_device,
                            &top_temperature_sensor,
-                           &_i2c1_dev::comm_buff[_i2c1_dev::_param::kwrte_loc][0],
-                           &_i2c1_dev::comm_buff[_i2c1_dev::_param::kread_top_temp_sensor][0],
-                           &lc_top_temp_sensor_comm_state
-                                                                 );
-        if ((lc_top_temp_sensor_comm_state.DevFlt  != AD741x::DevFlt::kNone) ||
-            (first_pass == 1)) {
-            // If the AD7415 device/communication is faulty, OR it has been the first pass through
-            // of task then
-            _ihal::setFault(&_ihal::_ii2c1::internal_top_temp_raw);
-        }
-        else
-        {   // Otherwise data is good, and this is not the first pass
-            _ihal::pushValue(&_ihal::_ii2c1::internal_top_temp_raw,
-                             top_temperature_sensor.temp);
+                           &lc_top_temp_sensor_comm_state,
+                           &first_pass
+                                                          );
 
-            _ihal::clearFault(&_ihal::_ii2c1::internal_top_temp_raw);
-        }
 
         // Setup data communication with the bottom internal temperature sensor & read back data
-        _i2c1_dev::_int_temp::internalTemperatureSensorManagement(
+        // Will handle the connection to the HAL layer for the read parameter
+        _i2c1_dev::_int_temp::manageBottomTemperatureSensor(
                            &i2c1_device,
                            &bottom_temperature_sensor,
-                           &_i2c1_dev::comm_buff[_i2c1_dev::_param::kwrte_loc][0],
-                           &_i2c1_dev::comm_buff[_i2c1_dev::_param::kread_bottom_temp_sensor][0],
-                           &lc_bottom_temp_sensor_comm_state
-                                                                 );
-        if ((lc_bottom_temp_sensor_comm_state.DevFlt  != AD741x::DevFlt::kNone) ||
-            (first_pass == 1)) {
-            // If the AD7415 device/communication is faulty, OR it has been the first pass through
-            // of task then
-            _ihal::setFault(&_ihal::_ii2c1::internal_bottom_temp_raw);
-        }
-        else
-        {   // Otherwise data is good, and this is not the first pass
-            _ihal::pushValue(&_ihal::_ii2c1::internal_bottom_temp_raw,
-                             bottom_temperature_sensor.temp);
+                           &lc_bottom_temp_sensor_comm_state,
+                           &first_pass
+                                                             );
 
-            _ihal::clearFault(&_ihal::_ii2c1::internal_bottom_temp_raw);
+
+        // Setup data communication with the right motor temperature sensor & read back data
+        // Will handle the connection to the HAL layer for the read parameter
+        _i2c1_dev::_motor_temp::manageMotorRightTemperatureSensor(
+                           &i2c1_device,
+                           &r_motor_temperature_sensor,
+                           &lc_r_motor_temp_sensor_comm_state,
+                           &first_pass
+                                                                   );
+
+        // Setup data communication with the left motor temperature sensor & read back data
+        // Will handle the connection to the HAL layer for the read parameter
+        _i2c1_dev::_motor_temp::manageMotorLeftTemperatureSensor(
+                           &i2c1_device,
+                           &l_motor_temperature_sensor,
+                           &lc_l_motor_temp_sensor_comm_state,
+                           &first_pass
+                                                                  );
+
+        // As there are 4 devices connected to the I2C bus, need to determine if any of them have
+        // detected a fault with the communication bus.
+        // So if there is no faults detected on the bus line, then indicate it as such
+        if ( (lc_top_temp_sensor_comm_state.ComFlt == I2CPeriph::DevFlt::kNone) &&
+             (lc_bottom_temp_sensor_comm_state.ComFlt == I2CPeriph::DevFlt::kNone) &&
+             (lc_r_motor_temp_sensor_comm_state.ComFlt == I2CPeriph::DevFlt::kNone) &&
+             (lc_l_motor_temp_sensor_comm_state.ComFlt == I2CPeriph::DevFlt::kNone) ) {
+            lc_i2c1_comm_flt = I2CPeriph::DevFlt::kNone;
+        }
+        // If however, there is a fault. Need to scan through the fault flags and find the first
+        // device which has got the fault.
+        else {
+            if      (lc_top_temp_sensor_comm_state.ComFlt != I2CPeriph::DevFlt::kNone) {
+                lc_i2c1_comm_flt = lc_top_temp_sensor_comm_state.ComFlt;
+            }
+            else if (lc_bottom_temp_sensor_comm_state.ComFlt != I2CPeriph::DevFlt::kNone) {
+                lc_i2c1_comm_flt = lc_bottom_temp_sensor_comm_state.ComFlt;
+            }
+            else if (lc_r_motor_temp_sensor_comm_state.ComFlt != I2CPeriph::DevFlt::kNone) {
+                lc_i2c1_comm_flt = lc_r_motor_temp_sensor_comm_state.ComFlt;
+            }
+            else if (lc_l_motor_temp_sensor_comm_state.ComFlt != I2CPeriph::DevFlt::kNone) {
+                lc_i2c1_comm_flt = lc_l_motor_temp_sensor_comm_state.ComFlt;
+            }
         }
 
         // Link internal signals to output pointers:
-        _ihal::pushValue(&_ihal::_ii2c1::comm_flt, lc_i2c1_comm_flt);
-        _ihal::pushValue(&_ihal::_ii2c1::top_temp_sensor_flt, lc_top_temp_sensor_comm_state);
-        _ihal::pushValue(&_ihal::_ii2c1::bottom_temp_sensor_flt, lc_bottom_temp_sensor_comm_state);
+        _ihal::pushValue(&_ihal::_ii2c1::comm_flt,
+                          lc_i2c1_comm_flt);
+        _ihal::pushValue(&_ihal::_ii2c1::top_temp_sensor_flt,
+                         lc_top_temp_sensor_comm_state);
+        _ihal::pushValue(&_ihal::_ii2c1::bottom_temp_sensor_flt,
+                         lc_bottom_temp_sensor_comm_state);
+
+        _ihal::pushValue(&_ihal::_ii2c1::right_motor_sensor_flt,
+                         lc_r_motor_temp_sensor_comm_state);
+        _ihal::pushValue(&_ihal::_ii2c1::left_motor_sensor_flt,
+                         lc_l_motor_temp_sensor_comm_state);
 
         first_pass = 0;             // Update this flag such that it now indicates that first
                                     // pass has completed
