@@ -47,6 +47,37 @@ Semaphore<  Param<float>  > internal_bottom_temp_raw = {
         .lock    = LockState::kLocked
 };
 
+Semaphore<  Param<float>  > right_motor_temp_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore<  Param<float>  > right_motor_pres_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore<  Param<float>  > right_motor_humd_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore<  Param<float>  > left_motor_temp_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore<  Param<float>  > left_motor_pres_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore<  Param<float>  > left_motor_humd_raw  = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+
 Semaphore< I2CPeriph::DevFlt > comm_flt = {
         .content = I2CPeriph::DevFlt::kInitialised,
         .lock    = LockState::kLocked
@@ -58,6 +89,16 @@ Semaphore< DevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> > top_temp_sensor_flt = 
 };
 
 Semaphore< DevComFlt<AD741x::DevFlt, I2CPeriph::DevFlt> > bottom_temp_sensor_flt = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore< DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> > right_motor_sensor_flt = {
+        .content = { 0 },
+        .lock    = LockState::kLocked
+};
+
+Semaphore< DevComFlt<BME280::DevFlt, I2CPeriph::DevFlt> > left_motor_sensor_flt = {
         .content = { 0 },
         .lock    = LockState::kLocked
 };
@@ -84,6 +125,30 @@ void interfaceInitialise(void) {
     internal_bottom_temp_raw.content.flt    = FltState::kFaulty;
     internal_bottom_temp_raw.lock           = LockState::kUnlocked;
 
+    right_motor_temp_raw.content.data       = -999.0f;
+    right_motor_temp_raw.content.flt        = FltState::kFaulty;
+    right_motor_temp_raw.lock               = LockState::kUnlocked;
+
+    right_motor_pres_raw.content.data       = -999.0f;
+    right_motor_pres_raw.content.flt        = FltState::kFaulty;
+    right_motor_pres_raw.lock               = LockState::kUnlocked;
+
+    right_motor_humd_raw.content.data       = -999.0f;
+    right_motor_humd_raw.content.flt        = FltState::kFaulty;
+    right_motor_humd_raw.lock               = LockState::kUnlocked;
+
+    left_motor_temp_raw.content.data        = -999.0f;
+    left_motor_temp_raw.content.flt         = FltState::kFaulty;
+    left_motor_temp_raw.lock                = LockState::kUnlocked;
+
+    left_motor_pres_raw.content.data        = -999.0f;
+    left_motor_pres_raw.content.flt         = FltState::kFaulty;
+    left_motor_pres_raw.lock                = LockState::kUnlocked;
+
+    left_motor_humd_raw.content.data        = -999.0f;
+    left_motor_humd_raw.content.flt         = FltState::kFaulty;
+    left_motor_humd_raw.lock                = LockState::kUnlocked;
+
     comm_flt.content            = I2CPeriph::DevFlt::kInitialised;
     comm_flt.lock               = LockState::kUnlocked;
 
@@ -96,6 +161,16 @@ void interfaceInitialise(void) {
     bottom_temp_sensor_flt.content.DevFlt   = AD741x::DevFlt::kInitialised;
     bottom_temp_sensor_flt.content.ComFlt   = I2CPeriph::DevFlt::kInitialised;
     bottom_temp_sensor_flt.lock             = LockState::kUnlocked;
+
+    right_motor_sensor_flt.content.IdleCount= 0;
+    right_motor_sensor_flt.content.DevFlt   = BME280::DevFlt::kInitialised;
+    right_motor_sensor_flt.content.ComFlt   = I2CPeriph::DevFlt::kInitialised;
+    right_motor_sensor_flt.lock             = LockState::kUnlocked;
+
+    left_motor_sensor_flt.content.IdleCount = 0;
+    left_motor_sensor_flt.content.DevFlt    = BME280::DevFlt::kInitialised;
+    left_motor_sensor_flt.content.ComFlt    = I2CPeriph::DevFlt::kInitialised;
+    left_motor_sensor_flt.lock              = LockState::kUnlocked;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
