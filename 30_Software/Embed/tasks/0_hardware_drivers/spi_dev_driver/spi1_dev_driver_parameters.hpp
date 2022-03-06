@@ -50,14 +50,23 @@ namespace _spi1_dev::_param {
  * Exported Variables
  * ~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-inline constexpr uint16_t   kform_size      = 16;   // Queue size of the SPI1 class forms
-inline constexpr uint8_t    kbuff_size      = 64;   // Queue size of the SPI1 data transmit
-                                                    // and receive buffer
+// Task rate of SPI main()
+inline constexpr uint8_t    ktask_rate      = 5;        // Task rate of the SPI1 device
 
-inline constexpr uint8_t    kwrte_loc       = 0;    // Array position for Write
-inline constexpr uint8_t    kread_loc       = 1;    // Array position for Read
+// Internal class form size(s)
+inline constexpr uint16_t   kspi_form_size      = 16;   // Queue size of the SPI1 class forms
+inline constexpr uint8_t    kangle_form_depth   = 16;   // Queue size for the AS5047 device
 
-inline constexpr uint8_t    ktask_rate      = 5;    // Task rate of the SPI1 device
+// Communication register size(s)
+inline constexpr uint8_t    kangle_buff_size    = 32;   // Register size(s) of the SPI1 data
+                                                        // transmit and receive
+
+// Fault threshold(s)
+inline constexpr uint8_t    kfault_count        = 6;    // Maximum number of no data, before faults
+
+//////
+inline constexpr uint8_t    kwrte_loc       = 0;        // Array position for Write
+inline constexpr uint8_t    kread_loc       = 1;        // Array position for Read
 
 /**************************************************************************************************
  * Exported types

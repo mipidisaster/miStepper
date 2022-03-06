@@ -52,9 +52,8 @@ namespace _spi1_dev {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
 static SPIPeriph    *lc_handle;         // Pointer to the SPI1 class handle, for interrupt use
-static uint8_t      comm_buff[2][_param::kbuff_size]    = { 0 };
 
-static SPIPeriph::Form  form[_param::kform_size]        = { 0 };
+static SPIPeriph::Form  form[_param::kspi_form_size]    = { 0 };
 
 /**************************************************************************************************
  * Define any private function prototypes
@@ -73,7 +72,7 @@ void vSPI1DeviceHAL(void const * argument) {
 /*---------------------------[  Setup HAL based classes for H/W   ]---------------------------*/
     // Create SPI1 class
     // =================
-    SPIPeriph   spi1_device(&hspi1, &_spi1_dev::form[0], _spi1_dev::_param::kform_size);
+    SPIPeriph   spi1_device(&hspi1, &_spi1_dev::form[0], _spi1_dev::_param::kspi_form_size);
     _spi1_dev::lc_handle = &spi1_device;    // Link SPI1Dev class to global pointer (for ISR)
 
     // Setup SPI Connected Devices
@@ -118,32 +117,25 @@ void vSPI1DeviceHAL(void const * argument) {
         uint16_t cal_task_period = _ihal::_itimer::toc(&previous_recorded_time);
 
         // Check the status of the AS5047D communication
-        _spi1_dev::_ext_angle::angleSensorMangement(
+        // Will handle the connection to the HAL layer for the read parameter
+        _spi1_dev::_ext_angle::manageAngleSensor(
                                     &spi1_device,
                                     &angle_sensor,
                                     &as5_daisy,
                                     &angle_chipselect,
-                                    &_spi1_dev::comm_buff[_spi1_dev::_param::kwrte_loc][0],
-                                    &_spi1_dev::comm_buff[_spi1_dev::_param::kread_loc][0],
-                                    &lc_angle_sensor_comm_state
+                                    &lc_angle_sensor_comm_state,
+                                    &first_pass
                                                   );
-        if ((lc_angle_sensor_comm_state.DevFlt  != AS5x4x::DevFlt::kNone) ||
-            (first_pass == 1)) {
-            // If the AS5048 device/communication is faulty, OR it has been the first pass through
-            // of task then ensure then set the fault flag, and leave data at last good value
-            _ihal::setFault(&_ihal::_ispi1::ang_pos_raw);
-        }
-        else
-        {   // Otherwise data is good, and this is not the first pass
-            _ihal::pushValue(&_ihal::_ispi1::ang_pos_raw,
-                             angle_sensor.angle);
 
-            _ihal::clearFault(&_ihal::_ispi1::ang_pos_raw);
-        }
+        // As this is only 1 device connected to the SPI, its fault indication for the
+        // communication bus needs to be copied into the "lc_spi1_comm_flt"
+        lc_spi1_comm_flt = lc_angle_sensor_comm_state.ComFlt;
 
         // Link internal signals to output pointers:
-        _ihal::pushValue(&_ihal::_ispi1::comm_flt, lc_spi1_comm_flt);
-        _ihal::pushValue(&_ihal::_ispi1::angle_sensor_flt, lc_angle_sensor_comm_state);
+        _ihal::pushValue(&_ihal::_ispi1::comm_flt,
+                         lc_spi1_comm_flt);
+        _ihal::pushValue(&_ihal::_ispi1::angle_sensor_flt,
+                         lc_angle_sensor_comm_state);
 
         first_pass = 0;             // Update this flag such that it now indicates that first
                                     // pass has completed

@@ -69,9 +69,9 @@ namespace _spi1_dev::_ext_angle {
  *************************************************************************************************/
 AS5x4x  generateAngleSensor(void);          // Generate the required Angle Sensor class
 
-void    angleSensorMangement(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy, GPIO *CS,
-                             uint8_t *wtBuff, uint8_t *rdBuff,
-                             _ihal::DevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> *CommState);
+void    manageAngleSensor(SPIPeriph *hspi, AS5x4x *angle_device, AS5x4x::Daisy *daisy, GPIO *CS,
+                          _ihal::DevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> *CommState,
+                          uint8_t *first_pass);
 
 }
 #endif /* SPI1_ANGLE_SENSOR_HPP_ */

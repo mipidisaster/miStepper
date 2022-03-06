@@ -27,6 +27,8 @@
 
 #include "tasks/1_hardware_arbitration_layer/ihal_management.hpp"
 
+#include "tasks/1_hardware_arbitration_layer/ispi_hal.hpp"
+
 #include "FileIndex.h"
 //~~~~~~~~~~~~~~~~~~~~
 #include FilInd_SPIPe__HD               // Include the SPI class handler
@@ -39,10 +41,8 @@ namespace _spi1_dev::_ext_angle {
  * Define any private variables
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *************************************************************************************************/
-inline constexpr uint8_t   form_depth           = 16;   // Queue size for the AS5047 device
-inline constexpr uint8_t   fault_count          = 6;    // Maximum number of no data, before faults
-
-static uint16_t sensor_array[2][form_depth] = { 0 };    // Form Array for angle sensor
+static uint16_t             sensor_array[2][_param::kangle_form_depth]      = { 0 };
+static uint8_t              angle_buff[2][_param::kangle_buff_size]         = { 0 };
 
 /**************************************************************************************************
  * Define any private function prototypes
@@ -61,7 +61,7 @@ AS5x4x  generateAngleSensor(void) {
     AS5x4x  external_device(AS5x4x::DevPart::kAS5047D,
                             &sensor_array[_param::kwrte_loc][0],
                             &sensor_array[_param::kread_loc][0],
-                            form_depth);                              // State form size
+                            _param::kangle_form_depth);                           // State form size
 
     return (  external_device  );
 }
@@ -176,8 +176,8 @@ void angleSensorMangement(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy,
         else {  // If the number of bytes have not been transmitted yet, then...
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            if (CommState->IdleCount >= fault_count) {      // If the count exceeds the limit,
-                                                            // then
+            if (CommState->IdleCount >= _param::kfault_count) { // If the count exceeds the limit,
+                                                                // then
                 CommState->DevFlt   = AS5x4x::DevFlt::kNo_Communication;
                 // Indicate that there is no communication with device
             }
@@ -199,6 +199,43 @@ void angleSensorMangement(SPIPeriph *hspi, AS5x4x *device, AS5x4x::Daisy *daisy,
         // Setup a new set of packets to transmit.
         // This is to allow for any temporary hardware fault to be cleared, and communication to
         // be re-established
+    }
+}
+
+/**
+  * @brief:  Determines whether there is new data available to be decoded from the temperature
+  *          (top) sensor. Will also determine fault status of device communication.
+  * @param:  I2C Peripheral pointer
+  * @param:  AD741x device pointer
+  * @param:  Pointer to the DevComFlt specific for the AD741x device, so includes the AD741x
+  *          fault type, and I2C Peripheral fault type
+  * @param:  first_pass of the I2C task handler
+  * @retval: None (void output)
+  */
+void    manageAngleSensor(SPIPeriph *hspi, AS5x4x *angle_device, AS5x4x::Daisy *daisy, GPIO *CS,
+                          _ihal::DevComFlt<AS5x4x::DevFlt, SPIPeriph::DevFlt> *CommState,
+                          uint8_t *first_pass)
+{
+    angleSensorMangement(
+            hspi,
+            angle_device,
+            daisy,
+            CS,
+            &angle_buff[_param::kwrte_loc][0],
+            &angle_buff[_param::kread_loc][0],
+            CommState);
+
+    if ((CommState->DevFlt  != AS5x4x::DevFlt::kNone) || (*first_pass == 1)) {
+        // If the AS5048 device/communication is faulty, OR it has been the first pass through
+        // of task then ensure then set the fault flag, and leave data at last good value
+        _ihal::setFault(&_ihal::_ispi1::ang_pos_raw);
+    }
+    else
+    {   // Otherwise data is good, and this is not the first pass
+        _ihal::pushValue(&_ihal::_ispi1::ang_pos_raw,
+                         angle_device->angle);
+
+        _ihal::clearFault(&_ihal::_ispi1::ang_pos_raw);
     }
 }
 
